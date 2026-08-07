@@ -1,5 +1,5 @@
 {
-  "name": "simplewhisper",
+  "name": "mowa",
   "version": "1.0.0",
   "description": "Dyktowanie glosowe na macOS",
   "main": "./out/main/index.js",

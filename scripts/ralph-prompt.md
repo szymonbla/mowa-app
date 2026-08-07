@@ -75,5 +75,5 @@ Then commit everything with a short message naming the ticket. Never push.
 - Never delete a ticket file.
 - Never edit a ticket other than the one you are working on.
 - Never run `git push`, `git reset --hard` on work you did not create, or `rm -rf`.
-- Never write an API key, or anything from `~/Library/Application Support/simplewhisper/`,
+- Never write an API key, or anything from `~/Library/Application Support/mowa/`,
   into the repo or the progress log.

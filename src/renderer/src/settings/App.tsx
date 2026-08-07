@@ -130,7 +130,7 @@ export function App(): React.JSX.Element | null {
         </nav>
 
         <div className="brand">
-          <div className="brand-name">SimpleWhisper</div>
+          <div className="brand-name">mowa</div>
           <div className="brand-note">Wlasne klucze API. Bez subskrypcji.</div>
         </div>
       </aside>

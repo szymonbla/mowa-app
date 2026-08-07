@@ -1,5 +1,5 @@
-appId: com.szymon.simplewhisper
-productName: SimpleWhisper
+appId: com.szymon.mowa
+productName: mowa
 directories:
   buildResources: build
 files:
@@ -13,8 +13,8 @@ mac:
   # Aplikacja zyje w tray, nie w Docku.
   extendInfo:
     LSUIElement: true
-    NSMicrophoneUsageDescription: SimpleWhisper nagrywa Twoj glos, aby zamienic go na tekst.
-    NSAppleEventsUsageDescription: SimpleWhisper wysyla Cmd+V, aby wkleic transkrypcje.
+    NSMicrophoneUsageDescription: Aplikacja mowa nagrywa Twoj glos, aby zamienic go na tekst.
+    NSAppleEventsUsageDescription: Aplikacja mowa wysyla Cmd+V, aby wkleic transkrypcje.
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist

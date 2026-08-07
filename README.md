@@ -1,4 +1,4 @@
-# SimpleWhisper
+# mowa
 
 Dyktowanie glosowe na macOS. Nacisnij skrot, mow, nacisnij ponownie — tekst wkleja sie
 w aktywne pole i trafia do schowka.
@@ -58,7 +58,7 @@ Monit o Automatyzacje pokazuje sie raz. Zapytanie, ktore go wywolalo, konczy sie
 wraca; zostaje **Ustawienia systemowe → Prywatnosc → Automatyzacja**, albo:
 
 ```bash
-tccutil reset AppleEvents com.szymon.simplewhisper
+tccutil reset AppleEvents com.szymon.mowa
 ```
 
 ## Uzycie
@@ -111,11 +111,11 @@ security find-identity -v -p codesigning | grep "SimpleWhisper Local"
 npm run build:mac
 ```
 
-Wynik: `dist/SimpleWhisper-1.0.0-arm64.dmg`. Przy pierwszym uruchomieniu Gatekeeper
+Wynik: `dist/mowa-1.0.0-arm64.dmg`. Przy pierwszym uruchomieniu Gatekeeper
 zablokuje aplikacje — otworz przez **prawy klik → Open**, albo:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/SimpleWhisper.app
+xattr -dr com.apple.quarantine /Applications/mowa.app
 ```
 
 ## Architektura

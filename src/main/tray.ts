@@ -40,7 +40,7 @@ function trayIcon(): Electron.NativeImage {
 
 export function createTray(): void {
   tray = new Tray(trayIcon())
-  tray.setToolTip('SimpleWhisper')
+  tray.setToolTip('mowa')
   refreshTrayMenu()
 }
 

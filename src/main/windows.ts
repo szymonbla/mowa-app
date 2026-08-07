@@ -56,7 +56,7 @@ export function showSettingsWindow(): void {
     maximizable: false,
     fullscreenable: false,
     show: false,
-    title: 'SimpleWhisper',
+    title: 'mowa',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#161615',
     vibrancy: undefined,

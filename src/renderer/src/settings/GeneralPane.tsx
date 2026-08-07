@@ -108,7 +108,7 @@ export function GeneralPane({
               {permissions.automation === 'denied' && (
                 <>
                   {' '}
-                  Wlacz <b>SimpleWhisper → System Events</b>.
+                  Wlacz <b>mowa → System Events</b>.
                 </>
               )}
             </div>

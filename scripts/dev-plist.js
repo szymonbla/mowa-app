@@ -19,7 +19,7 @@ import { existsSync } from 'node:fs'
 const APP = 'node_modules/electron/dist/Electron.app'
 const PLIST = `${APP}/Contents/Info.plist`
 const KEY = 'NSAppleEventsUsageDescription'
-const VALUE = 'SimpleWhisper wysyla Cmd+V, aby wkleic transkrypcje.'
+const VALUE = 'Aplikacja mowa wysyla Cmd+V, aby wkleic transkrypcje.'
 
 // Cofniecie podpisu: skasuj `node_modules/electron/dist` i uruchom
 // `node node_modules/electron/install.js` — samo `npm install` nie pobiera `dist`.

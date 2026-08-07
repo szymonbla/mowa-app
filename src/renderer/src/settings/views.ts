@@ -12,7 +12,7 @@ export const NAV: { view: View; label: string; icon: IconName }[] = [
 ]
 
 export const TITLES: Record<View, { title: string; sub: string }> = {
-  home: { title: 'SimpleWhisper', sub: 'Dyktuj glosem w kazdej aplikacji.' },
+  home: { title: 'mowa', sub: 'Dyktuj glosem w kazdej aplikacji.' },
   shortcut: { title: 'Skrot', sub: 'Klawisze, ktore wlaczaja i koncza nagrywanie.' },
   model: { title: 'Model', sub: 'Dostawca transkrypcji i klucz API.' },
   general: { title: 'Ustawienia', sub: 'Jezyk, uprawnienia i autostart.' }
