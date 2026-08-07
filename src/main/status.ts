@@ -2,7 +2,7 @@ import type { AppError, AppStatus, KeyHealth, ProviderId } from '../shared/types
 import { getProvider } from './providers/index.js'
 import { ProviderError } from './providers/types.js'
 import { getApiKey, getModel } from './settings.js'
-import { silentWav } from './wav.js'
+import { silentWav } from '../shared/wav.js'
 import { getSettingsWindow } from './windows.js'
 
 /**
@@ -54,7 +54,8 @@ export async function checkKey(provider: ProviderId): Promise<KeyHealth> {
 
   setKeyHealth(provider, { state: 'checking' })
   try {
-    await getProvider(provider).transcribe(silentWav(500), {
+    // Enkoder jest wspolny i nie zna Buffera — owijamy dopiero tu, na krawedzi.
+    await getProvider(provider).transcribe(Buffer.from(silentWav(500)), {
       apiKey,
       model: getModel(provider),
       language: 'en'

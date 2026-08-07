@@ -117,8 +117,11 @@ src/preload/         contextBridge — renderer nie widzi kluczy API, tylko mask
 src/renderer/
   src/settings/      okno ustawien (React)
   src/overlay/       pigulka HUD
-  src/recorder/      getUserMedia + enkoder WAV
+  src/recorder/      getUserMedia + zbieranie PCM
   public/pcm-worklet.js   AudioWorklet, poza bundlem Vite
+src/shared/
+  types.ts           typy wspolne dla main, preload i renderera
+  wav.ts             enkoder WAV — jeden dla recordera i procesu glownego
 ```
 
 Audio: `AudioContext({ sampleRate: 16000 })` resampluje zrodlo, AudioWorklet zbiera PCM

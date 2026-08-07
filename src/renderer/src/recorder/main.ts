@@ -1,4 +1,4 @@
-import { SAMPLE_RATE, encodeWav } from './wav.js'
+import { SAMPLE_RATE, encodeWav } from '../../../shared/wav.js'
 
 interface Session {
   stream: MediaStream
