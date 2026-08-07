@@ -3,7 +3,6 @@ import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
 import { getProvider } from './providers/index.js'
 import { getApiKey, getModel } from './settings.js'
 import { silentWav } from '../shared/wav.js'
-import { getSettingsWindow } from './windows.js'
 
 /**
  * Diagnostyka aplikacji: czy klucz dziala i co ostatnio poszlo zle.
@@ -18,12 +17,19 @@ const keyHealth: Record<ProviderId, KeyHealth> = {
 
 let lastError: AppError | null = null
 
+/** Kto wypycha stan na zewnatrz, ustala warstwa startowa. Status nie zna okien. */
+let listener: ((status: AppStatus) => void) | null = null
+
+export function onStatusChanged(fn: (status: AppStatus) => void): void {
+  listener = fn
+}
+
 export function getStatus(): AppStatus {
   return { keyHealth: { ...keyHealth }, lastError }
 }
 
 function broadcast(): void {
-  getSettingsWindow()?.webContents.send('status:changed', getStatus())
+  listener?.(getStatus())
 }
 
 export function setError(err: Omit<AppError, 'at'> | null): void {

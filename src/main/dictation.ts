@@ -1,153 +1,200 @@
 import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
-import type { Failure, RecorderFailure } from '../shared/failure.js'
-import { getProvider } from './providers/index.js'
-import { getApiKey, getModel, getSettings } from './settings.js'
-import { pasteText } from './paste.js'
-import { getPermissions, requestMicrophone } from './permissions.js'
-import { setError, setKeyHealth } from './status.js'
-import {
-  getRecorderWindow,
-  hideOverlay,
-  showOverlay,
-  updateOverlay
-} from './windows.js'
-import { bindCancelKey, unbindCancelKey } from './shortcut.js'
+import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
+import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
+import type { TranscribeOptions } from './providers/types.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
-
-let phase: Phase = 'idle'
-let errorTimer: NodeJS.Timeout | null = null
 
 const DONE_HIDE_MS = 600
 const ERROR_HIDE_MS = 2600
 /** Blad, ktory wymaga dzialania, musi zdazyc sie przeczytac. */
 const ACTION_HIDE_MS = 5200
+/** Ponizej tego progu nagranie to zwykle przypadkowe dwuklikniecie skrotu. */
+const MIN_RECORDING_MS = 350
 
-function clearTimer(): void {
-  if (errorTimer) clearTimeout(errorTimer)
-  errorTimer = null
+/** Co odsyla okno recordera: nagranie albo powod, dla ktorego go nie ma. */
+export type Recording =
+  | { ok: true; wav: Buffer; durationMs: number }
+  | { ok: false; failure: RecorderFailure }
+
+export interface DictationSettings {
+  provider: ProviderId
+  /** Nazwa dostawcy do komunikatu o braku klucza. */
+  providerLabel: string
+  model: string
+  language: LanguageId
 }
 
 /**
- * Pigulka pokazuje krotki komunikat i znika. Pelna tresc — z surowym stderr albo
- * odpowiedzia dostawcy — zostaje w oknie ustawien, bo tam da sie ja przeczytac.
- * Oba miejsca biora tresc z jednego `describe()`, wiec nie moga sie rozjechac.
+ * Jedyna krawedz dyktowania. Adapter na Electron siedzi w `dictation-host.ts`,
+ * adapter pamieciowy — w testach; dzieki temu cala sciezka biegnie bez Electrona.
+ * Odczyty sa synchroniczne, bo start nie moze na nic czekac.
  */
-function fail(failure: Failure): void {
-  phase = 'idle'
-  unbindCancelKey()
-  const text = describe(failure)
-  setError(text)
-  showOverlay({ state: 'error', message: text.message })
-  clearTimer()
-  errorTimer = setTimeout(hideOverlay, text.fix ? ACTION_HIDE_MS : ERROR_HIDE_MS)
+export interface DictationHost {
+  settings(): DictationSettings
+  apiKey(provider: ProviderId): string | null
+  microphoneGranted(): boolean
+  /** Monit systemowy. Idzie w tle — pigulka mowi od razu, czego brakuje. */
+  requestMicrophone(): void
+  /** Rozkaz dla okna recordera. */
+  record(command: 'start' | 'stop' | 'cancel'): void
+  bindCancelKey(onCancel: () => void): void
+  unbindCancelKey(): void
+  showOverlay(payload: OverlayPayload): void
+  updateOverlay(payload: OverlayPayload): void
+  hideOverlay(): void
+  setError(error: FailureText | null): void
+  setKeyHealth(provider: ProviderId, health: KeyHealth): void
+  transcribe(provider: ProviderId, wav: Buffer, opts: TranscribeOptions): Promise<string>
+  paste(text: string): Promise<void>
+  /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
+  timer(ms: number, fn: () => void): () => void
 }
 
-/** Skrot dyktowania. Pierwsze nacisniecie startuje, drugie konczy. */
-export function toggleDictation(): void {
-  if (phase === 'recording') {
-    stopRecording()
-    return
-  }
-  if (phase === 'transcribing') return
-  startRecording()
+export interface Dictation {
+  /** Skrot dyktowania. Pierwsze nacisniecie startuje, drugie konczy. */
+  toggle(): void
+  cancel(): void
+  submit(recording: Recording): Promise<void>
 }
 
 /**
- * Cala sciezka jest synchroniczna. Kazde `await` przed `showOverlay()` opoznialoby
- * pojawienie sie pigulki, a to jedyne potwierdzenie, ze skrot zadzialal.
+ * Cale dyktowanie: skrot → pigulka → mowa → skrot → wklejenie. Faza zyje tylko tutaj,
+ * bo kazdy, kto moglby ja ustawic z zewnatrz, moglby ja tez rozjechac z pigulka.
  */
-function startRecording(): void {
-  const settings = getSettings()
-  const provider = getProvider(settings.provider)
+export function createDictation(host: DictationHost): Dictation {
+  let phase: Phase = 'idle'
+  let stopTimer: (() => void) | null = null
+  /** Rosnie przy anulowaniu. Transkrypcja ze starego biegu jest juz niczyja. */
+  let run = 0
 
-  if (!getApiKey(settings.provider)) {
-    fail({ kind: 'no-key', provider: provider.label })
-    return
-  }
-  if (getPermissions().microphone !== 'granted') {
-    // Monit systemowy pokazujemy w tle — pigulka mowi od razu, czego brakuje.
-    void requestMicrophone()
-    fail({ kind: 'microphone' })
-    return
+  function clearTimer(): void {
+    stopTimer?.()
+    stopTimer = null
   }
 
-  clearTimer()
-  phase = 'recording'
-  showOverlay({ state: 'recording' })
-  bindCancelKey(cancelDictation)
-  getRecorderWindow().webContents.send('record:start')
-}
-
-function stopRecording(): void {
-  phase = 'transcribing'
-  unbindCancelKey()
-  updateOverlay({ state: 'transcribing' })
-  getRecorderWindow().webContents.send('record:stop')
-}
-
-export function cancelDictation(): void {
-  if (phase === 'idle') return
-  phase = 'idle'
-  unbindCancelKey()
-  getRecorderWindow().webContents.send('record:cancel')
-  hideOverlay()
-}
-
-export function isRecording(): boolean {
-  return phase === 'recording'
-}
-
-/** Wywolywane przez IPC, gdy renderer skonczyl kodowac WAV. */
-export async function handleAudio(wav: Buffer, durationMs: number): Promise<void> {
-  if (phase !== 'transcribing') return
-
-  if (durationMs < 350) {
-    fail({ kind: 'too-short' })
-    return
+  function hideAfter(ms: number): void {
+    clearTimer()
+    stopTimer = host.timer(ms, host.hideOverlay)
   }
 
-  const settings = getSettings()
-  const provider = getProvider(settings.provider)
-  const apiKey = getApiKey(settings.provider)
-  if (!apiKey) {
-    fail({ kind: 'no-key', provider: provider.label })
-    return
+  /**
+   * Pigulka pokazuje krotki komunikat i znika. Pelna tresc — z surowym stderr albo
+   * odpowiedzia dostawcy — zostaje w oknie ustawien, bo tam da sie ja przeczytac.
+   * Oba miejsca biora tresc z jednego `describe()`, wiec nie moga sie rozjechac.
+   */
+  function fail(failure: Failure): void {
+    phase = 'idle'
+    host.unbindCancelKey()
+    const text = describe(failure)
+    host.setError(text)
+    host.showOverlay({ state: 'error', message: text.message })
+    hideAfter(text.fix ? ACTION_HIDE_MS : ERROR_HIDE_MS)
   }
 
-  try {
-    const text = await provider.transcribe(wav, {
-      apiKey,
-      model: getModel(settings.provider),
-      language: settings.language === 'auto' ? undefined : settings.language
-    })
+  /**
+   * Cala sciezka startu jest synchroniczna. Kazde `await` przed `showOverlay()`
+   * opoznialoby pojawienie sie pigulki, a to jedyne potwierdzenie, ze skrot zadzialal.
+   */
+  function start(): void {
+    const { provider, providerLabel } = host.settings()
 
-    const trimmed = text.trim()
-    if (!trimmed) {
-      fail({ kind: 'no-speech' })
+    if (!host.apiKey(provider)) {
+      fail({ kind: 'no-key', provider: providerLabel })
+      return
+    }
+    if (!host.microphoneGranted()) {
+      host.requestMicrophone()
+      fail({ kind: 'microphone' })
       return
     }
 
-    // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
-    setKeyHealth(settings.provider, { state: 'ok' })
-
-    await pasteText(trimmed)
-    phase = 'idle'
-    setError(null)
-    updateOverlay({ state: 'done' })
     clearTimer()
-    errorTimer = setTimeout(hideOverlay, DONE_HIDE_MS)
-  } catch (err) {
-    const failure = toFailure(err)
-    // 401/403 zapala lampke przy kluczu, zanim uzytkownik otworzy ustawienia.
-    if (isKeyRejection(failure)) {
-      setKeyHealth(settings.provider, { state: 'invalid', message: describe(failure).message })
-    }
-    fail(failure)
+    phase = 'recording'
+    host.showOverlay({ state: 'recording' })
+    host.bindCancelKey(cancel)
+    host.record('start')
   }
-}
 
-/** Okno recordera zglasza fakty, nie tresc — pigulka bierze ja stad, co reszta. */
-export function handleAudioError(failure: RecorderFailure): void {
-  fail(failure)
+  function stop(): void {
+    phase = 'transcribing'
+    host.unbindCancelKey()
+    host.updateOverlay({ state: 'transcribing' })
+    host.record('stop')
+  }
+
+  function toggle(): void {
+    if (phase === 'recording') {
+      stop()
+      return
+    }
+    if (phase === 'transcribing') return
+    start()
+  }
+
+  function cancel(): void {
+    if (phase === 'idle') return
+    phase = 'idle'
+    run++
+    host.unbindCancelKey()
+    host.record('cancel')
+    host.hideOverlay()
+  }
+
+  async function submit(recording: Recording): Promise<void> {
+    // Awaria recordera nie zalezy od fazy — mikrofon potrafi odmowic juz przy starcie.
+    if (!recording.ok) {
+      fail(recording.failure)
+      return
+    }
+    if (phase !== 'transcribing') return
+
+    if (recording.durationMs < MIN_RECORDING_MS) {
+      fail({ kind: 'too-short' })
+      return
+    }
+
+    const { provider, providerLabel, model, language } = host.settings()
+    const apiKey = host.apiKey(provider)
+    if (!apiKey) {
+      fail({ kind: 'no-key', provider: providerLabel })
+      return
+    }
+
+    const mine = run
+    try {
+      const text = await host.transcribe(provider, recording.wav, {
+        apiKey,
+        model,
+        language: language === 'auto' ? undefined : language
+      })
+      // Esc w trakcie transkrypcji: wynik jest juz niczyj, nie wolno go wkleic.
+      if (mine !== run) return
+
+      const trimmed = text.trim()
+      if (!trimmed) {
+        fail({ kind: 'no-speech' })
+        return
+      }
+
+      // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
+      host.setKeyHealth(provider, { state: 'ok' })
+
+      await host.paste(trimmed)
+      phase = 'idle'
+      host.setError(null)
+      host.updateOverlay({ state: 'done' })
+      hideAfter(DONE_HIDE_MS)
+    } catch (err) {
+      if (mine !== run) return
+      const failure = toFailure(err)
+      // 401/403 zapala lampke przy kluczu, zanim uzytkownik otworzy ustawienia.
+      if (isKeyRejection(failure)) {
+        host.setKeyHealth(provider, { state: 'invalid', message: describe(failure).message })
+      }
+      fail(failure)
+    }
+  }
+
+  return { toggle, cancel, submit }
 }

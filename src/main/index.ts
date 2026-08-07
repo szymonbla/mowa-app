@@ -2,16 +2,17 @@ import { app, session } from 'electron'
 import { initSettings, getSettings } from './settings.js'
 import { registerIpc } from './ipc.js'
 import { registerShortcut, unregisterAll } from './shortcut.js'
-import { toggleDictation } from './dictation.js'
+import { dictation } from './dictation-host.js'
 import { createTray, refreshTrayMenu } from './tray.js'
 import {
   getRecorderWindow,
   showSettingsWindow,
   destroyWindows,
+  sendStatus,
   warmOverlay
 } from './windows.js'
 import { syncLaunchAtLogin } from './autostart.js'
-import { checkKey } from './status.js'
+import { checkKey, onStatusChanged } from './status.js'
 
 // Druga instancja przechwycilaby skrot globalny i nagrywala rownolegle.
 if (!app.requestSingleInstanceLock()) app.quit()
@@ -29,11 +30,14 @@ app.whenReady().then(() => {
 
   app.dock?.hide()
 
+  // Diagnostyka trafia do okna ustawien tylko stad — sam status o oknach nie wie.
+  onStatusChanged(sendStatus)
+
   registerIpc()
   createTray()
   syncLaunchAtLogin(settings.launchAtLogin)
 
-  const result = registerShortcut(settings.shortcut, toggleDictation)
+  const result = registerShortcut(settings.shortcut, dictation.toggle)
 
   // Rozgrzewamy oba ukryte okna, zeby pierwsze dyktowanie nie czekalo na start.
   getRecorderWindow()

@@ -1,6 +1,6 @@
 import { Menu, Tray, app, nativeImage } from 'electron'
 import { showSettingsWindow } from './windows.js'
-import { toggleDictation } from './dictation.js'
+import { dictation } from './dictation-host.js'
 import { getSettings } from './settings.js'
 
 let tray: Tray | null = null
@@ -49,7 +49,7 @@ export function refreshTrayMenu(): void {
   const { shortcut } = getSettings()
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Dyktuj', accelerator: shortcut, click: toggleDictation },
+      { label: 'Dyktuj', accelerator: shortcut, click: dictation.toggle },
       { type: 'separator' },
       { label: 'Ustawienia…', click: showSettingsWindow },
       { type: 'separator' },

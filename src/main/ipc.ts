@@ -16,7 +16,7 @@ import {
   requestMicrophone
 } from './permissions.js'
 import { registerShortcut } from './shortcut.js'
-import { handleAudio, handleAudioError, toggleDictation } from './dictation.js'
+import { dictation } from './dictation-host.js'
 import { sendOverlayLevel } from './windows.js'
 import { setLaunchAtLogin } from './autostart.js'
 import { refreshTrayMenu } from './tray.js'
@@ -35,7 +35,7 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle('settings:setShortcut', (_e, accelerator: string) => {
-    const result = registerShortcut(accelerator, toggleDictation)
+    const result = registerShortcut(accelerator, dictation.toggle)
     if (result.ok) {
       patchSettings({ shortcut: accelerator })
       refreshTrayMenu()
@@ -68,8 +68,10 @@ export function registerIpc(): void {
 
   // Kanaly recordera (ukryte okno → main).
   ipcMain.on('record:level', (_e, level: number) => sendOverlayLevel(level))
-  ipcMain.on('record:error', (_e, failure: RecorderFailure) => handleAudioError(failure))
+  ipcMain.on('record:error', (_e, failure: RecorderFailure) =>
+    void dictation.submit({ ok: false, failure })
+  )
   ipcMain.handle('record:audio', (_e, wav: ArrayBuffer, durationMs: number) =>
-    handleAudio(Buffer.from(wav), durationMs)
+    dictation.submit({ ok: true, wav: Buffer.from(wav), durationMs })
   )
 }

@@ -15,17 +15,31 @@ npm run dev
 Aplikacja nie ma ikony w Docku. Zyje w pasku menu (ikona trzech slupkow).
 Okno ustawien: menu tray → **Ustawienia…**
 
-`predev` uruchamia `scripts/dev-plist.js`. Skrypt dopisuje
-`NSAppleEventsUsageDescription` do `Electron.app` z `node_modules` i podpisuje ja na nowo.
-Bez tego wpisu macOS odrzuca `Cmd+V` bez pokazania monitu (`osascript` zwraca `-1743`).
+### Wklejanie w trybie dev
 
-Nowy podpis to dla macOS nowa aplikacja, wiec **po pierwszym takim starcie**:
+`Cmd+V` idzie przez Apple Event do `System Events`. Przy starcie z terminala macOS
+przypisuje ten event **terminalowi**, a nie Electronowi: proces odpowiedzialny za cale
+drzewo `iTerm → zsh → npm → node → Electron` to iTerm. Zgode trzeba wiec nadac iTermowi.
 
-- w monicie Keychain kliknij **Zawsze zezwalaj** — inaczej zapisane klucze API znikna,
-- nadaj **Accessibility** ponownie.
+**Ustawienia systemowe → Prywatnosc → Automatyzacja → iTerm → System Events.**
 
-Skrypt jest idempotentny, ale `npm install` pobiera swiezy katalog `dist` — wtedy
-zadziala jeszcze raz.
+Gdy pozycji nie ma na liscie, macOS trzyma stara odmowe. Kasowanie i ponowny monit:
+
+```bash
+tccutil reset AppleEvents com.googlecode.iterm2
+```
+
+Zbudowana `.dmg` tego nie dotyczy — Finder uruchamia ja przez LaunchServices, wiec
+odpowiada sama za siebie i pyta pod wlasna nazwa.
+
+Sprawdzenie, czy zgoda dziala (`-1743` = brak zgody):
+
+```bash
+osascript -e 'tell application "System Events" to return UI elements enabled'
+```
+
+Uwaga na sonde: `return 1`, `return name` i `return version` AppleScript odpowiada sam,
+bez wysylania eventu. Taki test przechodzi zawsze i nic nie sprawdza.
 
 ## Pierwsza konfiguracja
 
@@ -39,8 +53,9 @@ zadziala jeszcze raz.
      bez niej `Cmd+V` nie dochodzi i tekst zostaje tylko w schowku.
 4. Ustaw skrot. Domyslnie `⌥␣` (Option+Space).
 
-Monit o Automatyzacje pokazuje sie raz. Po odmowie wraca sie tylko przez
-**Ustawienia systemowe → Prywatnosc → Automatyzacja**, albo:
+Monit o Automatyzacje pokazuje sie raz. Zapytanie, ktore go wywolalo, konczy sie bledem
+`-1743` takze po kliknieciu "Zezwol" — dopiero nastepne dziala. Po odmowie monit nie
+wraca; zostaje **Ustawienia systemowe → Prywatnosc → Automatyzacja**, albo:
 
 ```bash
 tccutil reset AppleEvents com.szymon.simplewhisper
@@ -61,6 +76,9 @@ transkrypcji, zolty blysk po wklejeniu, czerwony komunikat przy bledzie.
 
 Pigulka miesci jedno zdanie i znika. Pelna tresc bledu — kod HTTP dostawcy albo `stderr`
 z `osascript` — zostaje w oknie ustawien jako czerwony pasek, razem z przyciskiem naprawy.
+
+Miejsce, w ktorym awaria powstaje, podaje same fakty. Tresc dla uzytkownika tworzy
+`src/shared/failure.ts` i tylko on — pigulka, pasek i lampka klucza mowia to samo.
 
 Stan klucza API ma wlasna czerwona lampke: przy zakladce **Model**, przy nazwie dostawcy
 i na karcie **Start**. Klucz sprawdza sie sam przy starcie, po zapisie i po zmianie
@@ -105,13 +123,15 @@ xattr -dr com.apple.quarantine /Applications/SimpleWhisper.app
 ```
 src/main/            proces glowny
   index.ts           cykl zycia, tray, single instance
-  dictation.ts       maszyna stanow: idle → recording → transcribing → done | error
+  dictation.ts       maszyna stanow: idle → recording → transcribing → done | error;
+                     bez Electrona, cala reszta swiata wchodzi przez `DictationHost`
+  dictation-host.ts  jedyny adapter Electronowy dyktowania (drugi, pamieciowy, jest w test/)
   windows.ts         okno ustawien, overlay (panel, non-focusable), ukryty recorder
   shortcut.ts        globalShortcut + walidacja konfliktu
   settings.ts        settings.json + safeStorage dla kluczy
-  paste.ts           clipboard.writeText + osascript Cmd+V, klasyfikacja bledow
+  paste.ts           clipboard.writeText + osascript Cmd+V, rozpoznanie odmowy TCC
   permissions.ts     mikrofon, Accessibility, Automatyzacja
-  status.ts          stan klucza API i ostatni blad; push do okna ustawien
+  status.ts          stan klucza API i ostatni blad; push przez listenera z index.ts
   providers/         xai.ts, openai.ts, elevenlabs.ts
 src/preload/         contextBridge — renderer nie widzi kluczy API, tylko maske
 src/renderer/
@@ -122,6 +142,7 @@ src/renderer/
 src/shared/
   types.ts           typy wspolne dla main, preload i renderera
   wav.ts             enkoder WAV — jeden dla recordera i procesu glownego
+  failure.ts         fakty o awarii → komunikat, detal i przycisk naprawy
 ```
 
 Audio: `AudioContext({ sampleRate: 16000 })` resampluje zrodlo, AudioWorklet zbiera PCM

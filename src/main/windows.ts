@@ -1,7 +1,7 @@
 import { app, BrowserWindow, screen, shell } from 'electron'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { OverlayPayload } from '../shared/types.js'
+import type { AppStatus, OverlayPayload } from '../shared/types.js'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 const preload = join(dirname, '../preload/index.mjs')
@@ -79,8 +79,9 @@ export function showSettingsWindow(): void {
   load(settingsWindow, 'index.html')
 }
 
-export function getSettingsWindow(): BrowserWindow | null {
-  return settingsWindow
+/** Okno ustawien powstaje pozno — pierwsze sprawdzenie klucza trafia w pustke. */
+export function sendStatus(status: AppStatus): void {
+  settingsWindow?.webContents.send('status:changed', status)
 }
 
 function createOverlay(): BrowserWindow {
