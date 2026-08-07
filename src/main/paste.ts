@@ -2,6 +2,8 @@ import { clipboard, systemPreferences } from 'electron'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setAutomation } from './permissions.js'
+import { FailureError } from '../shared/failure.js'
+import type { Failure } from '../shared/failure.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -10,50 +12,29 @@ const PASTE_SCRIPT = 'tell application "System Events" to keystroke "v" using co
 /** Monit TCC blokuje osascript, dopoki uzytkownik nie odpowie. */
 const PASTE_TIMEOUT_MS = 5000
 
-export type PasteFailure = 'accessibility' | 'automation' | 'timeout' | 'unknown'
-
-/**
- * Tekst jest juz w schowku, zanim ten blad powstanie — kazdy komunikat to mowi,
- * bo Cmd+V recznie zawsze ratuje sytuacje.
- */
-export class PasteError extends Error {
-  constructor(
-    readonly kind: PasteFailure,
-    message: string,
-    /** Surowe stderr z osascript. Do okna ustawien, nie do pigulki. */
-    readonly detail?: string
-  ) {
-    super(message)
-    this.name = 'PasteError'
-  }
-}
-
-const MESSAGES: Record<PasteFailure, string> = {
-  accessibility: 'Brak zgody Accessibility — tekst w schowku',
-  automation: 'Brak zgody Automatyzacja — tekst w schowku',
-  timeout: 'Potwierdz monit macOS — tekst w schowku',
-  unknown: 'Nie udalo sie wkleic — tekst w schowku'
-}
+type PasteFailure = Extract<Failure, { kind: 'paste' }>
 
 /**
  * osascript nie zwraca kodu wyjscia per rodzaj odmowy — rozroznia je tylko stderr.
  *   -1743  Not authorised to send Apple events (zgoda Automatyzacja)
  *   -1719  proces nie jest zaufanym klientem Accessibility
  *   -25211 blad instalacji hooka klawiatury, ta sama przyczyna
+ *
+ * Wynikiem sa same fakty — surowe stderr wedruje do okna ustawien jako `detail`.
  */
-function classify(err: unknown): PasteError {
+function pasteFailure(err: unknown): PasteFailure {
   const e = err as { stderr?: string; killed?: boolean; message?: string }
   const stderr = (e.stderr ?? '').trim()
   const detail = stderr || e.message
 
-  if (e.killed) return new PasteError('timeout', MESSAGES.timeout, detail)
+  if (e.killed) return { kind: 'paste', reason: 'timeout', detail }
   if (stderr.includes('-1743') || /apple event/i.test(stderr)) {
-    return new PasteError('automation', MESSAGES.automation, detail)
+    return { kind: 'paste', reason: 'automation', detail }
   }
   if (stderr.includes('-1719') || stderr.includes('-25211') || /assistive/i.test(stderr)) {
-    return new PasteError('accessibility', MESSAGES.accessibility, detail)
+    return { kind: 'paste', reason: 'accessibility', detail }
   }
-  return new PasteError('unknown', MESSAGES.unknown, detail)
+  return { kind: 'paste', reason: 'unknown', detail }
 }
 
 /**
@@ -67,7 +48,7 @@ export async function pasteText(text: string): Promise<void> {
   clipboard.writeText(text)
 
   if (!systemPreferences.isTrustedAccessibilityClient(false)) {
-    throw new PasteError('accessibility', MESSAGES.accessibility)
+    throw new FailureError({ kind: 'paste', reason: 'accessibility' })
   }
 
   // Schowek systemowy potrzebuje chwili, zanim Cmd+V zobaczy nowa zawartosc.
@@ -76,10 +57,10 @@ export async function pasteText(text: string): Promise<void> {
   try {
     await execFileAsync('osascript', ['-e', PASTE_SCRIPT], { timeout: PASTE_TIMEOUT_MS })
   } catch (err) {
-    const failure = classify(err)
+    const failure = pasteFailure(err)
     // Udana proba jest jedynym pewnym dowodem zgody — zapamietujemy oba wyniki.
-    if (failure.kind === 'automation') setAutomation('denied')
-    throw failure
+    if (failure.reason === 'automation') setAutomation('denied')
+    throw new FailureError(failure)
   }
 
   setAutomation('granted')

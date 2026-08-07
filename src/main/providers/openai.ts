@@ -1,5 +1,6 @@
 import type { TranscribeOptions, TranscriptionProvider } from './types.js'
-import { ProviderError, readError, wavBlob } from './types.js'
+import { FailureError } from '../../shared/failure.js'
+import { readError, wavBlob } from './types.js'
 
 export const openai: TranscriptionProvider = {
   id: 'openai',
@@ -29,7 +30,7 @@ export const openai: TranscriptionProvider = {
     if (!res.ok) await readError(res)
 
     const json = (await res.json()) as { text?: string }
-    if (typeof json.text !== 'string') throw new ProviderError('Brak transkrypcji w odpowiedzi')
+    if (typeof json.text !== 'string') throw new FailureError({ kind: 'provider-response' })
     return json.text
   }
 }

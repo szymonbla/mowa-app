@@ -1,10 +1,10 @@
-import type { ErrorFix } from '../shared/types.js'
+import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
+import type { Failure, RecorderFailure } from '../shared/failure.js'
 import { getProvider } from './providers/index.js'
-import { ProviderError } from './providers/types.js'
 import { getApiKey, getModel, getSettings } from './settings.js'
-import { PasteError, pasteText } from './paste.js'
+import { pasteText } from './paste.js'
 import { getPermissions, requestMicrophone } from './permissions.js'
-import { isKeyRejection, setError, setKeyHealth } from './status.js'
+import { setError, setKeyHealth } from './status.js'
 import {
   getRecorderWindow,
   hideOverlay,
@@ -14,12 +14,6 @@ import {
 import { bindCancelKey, unbindCancelKey } from './shortcut.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
-
-interface Failure {
-  message: string
-  detail?: string
-  fix?: ErrorFix
-}
 
 let phase: Phase = 'idle'
 let errorTimer: NodeJS.Timeout | null = null
@@ -37,14 +31,16 @@ function clearTimer(): void {
 /**
  * Pigulka pokazuje krotki komunikat i znika. Pelna tresc — z surowym stderr albo
  * odpowiedzia dostawcy — zostaje w oknie ustawien, bo tam da sie ja przeczytac.
+ * Oba miejsca biora tresc z jednego `describe()`, wiec nie moga sie rozjechac.
  */
 function fail(failure: Failure): void {
   phase = 'idle'
   unbindCancelKey()
-  setError(failure)
-  showOverlay({ state: 'error', message: failure.message })
+  const text = describe(failure)
+  setError(text)
+  showOverlay({ state: 'error', message: text.message })
   clearTimer()
-  errorTimer = setTimeout(hideOverlay, failure.fix ? ACTION_HIDE_MS : ERROR_HIDE_MS)
+  errorTimer = setTimeout(hideOverlay, text.fix ? ACTION_HIDE_MS : ERROR_HIDE_MS)
 }
 
 /** Skrot dyktowania. Pierwsze nacisniecie startuje, drugie konczy. */
@@ -66,13 +62,13 @@ function startRecording(): void {
   const provider = getProvider(settings.provider)
 
   if (!getApiKey(settings.provider)) {
-    fail({ message: `Brak klucza ${provider.label}`, fix: 'key' })
+    fail({ kind: 'no-key', provider: provider.label })
     return
   }
   if (getPermissions().microphone !== 'granted') {
     // Monit systemowy pokazujemy w tle — pigulka mowi od razu, czego brakuje.
     void requestMicrophone()
-    fail({ message: 'Brak zgody na mikrofon', fix: 'microphone' })
+    fail({ kind: 'microphone' })
     return
   }
 
@@ -107,7 +103,7 @@ export async function handleAudio(wav: Buffer, durationMs: number): Promise<void
   if (phase !== 'transcribing') return
 
   if (durationMs < 350) {
-    fail({ message: 'Za krotkie nagranie' })
+    fail({ kind: 'too-short' })
     return
   }
 
@@ -115,7 +111,7 @@ export async function handleAudio(wav: Buffer, durationMs: number): Promise<void
   const provider = getProvider(settings.provider)
   const apiKey = getApiKey(settings.provider)
   if (!apiKey) {
-    fail({ message: `Brak klucza ${provider.label}`, fix: 'key' })
+    fail({ kind: 'no-key', provider: provider.label })
     return
   }
 
@@ -128,7 +124,7 @@ export async function handleAudio(wav: Buffer, durationMs: number): Promise<void
 
     const trimmed = text.trim()
     if (!trimmed) {
-      fail({ message: 'Nie wykryto mowy' })
+      fail({ kind: 'no-speech' })
       return
     }
 
@@ -142,36 +138,16 @@ export async function handleAudio(wav: Buffer, durationMs: number): Promise<void
     clearTimer()
     errorTimer = setTimeout(hideOverlay, DONE_HIDE_MS)
   } catch (err) {
+    const failure = toFailure(err)
     // 401/403 zapala lampke przy kluczu, zanim uzytkownik otworzy ustawienia.
-    if (isKeyRejection(err)) {
-      setKeyHealth(settings.provider, { state: 'invalid', message: (err as Error).message })
+    if (isKeyRejection(failure)) {
+      setKeyHealth(settings.provider, { state: 'invalid', message: describe(failure).message })
     }
-    fail(describeError(err))
+    fail(failure)
   }
 }
 
-export function handleAudioError(message: string): void {
-  fail({ message })
-}
-
-function describeError(err: unknown): Failure {
-  if (err instanceof PasteError) {
-    return {
-      message: err.message,
-      detail: err.detail,
-      fix: err.kind === 'automation' || err.kind === 'accessibility' ? err.kind : undefined
-    }
-  }
-  if (err instanceof ProviderError) {
-    return {
-      message: err.message,
-      detail: err.status ? `HTTP ${err.status}: ${err.message}` : err.message,
-      fix: err.status === 401 || err.status === 403 ? 'key' : undefined
-    }
-  }
-  if (err instanceof TypeError) {
-    return { message: 'Brak polaczenia z internetem', detail: err.message, fix: 'network' }
-  }
-  if (err instanceof Error) return { message: err.message.slice(0, 45), detail: err.stack }
-  return { message: 'Nieznany blad', detail: String(err) }
+/** Okno recordera zglasza fakty, nie tresc — pigulka bierze ja stad, co reszta. */
+export function handleAudioError(failure: RecorderFailure): void {
+  fail(failure)
 }

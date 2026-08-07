@@ -1,5 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import type { ProviderId, Settings, TestKeyResult } from '../shared/types.js'
+import type { RecorderFailure } from '../shared/failure.js'
 import {
   getAllKeyStatus,
   getKeyStatus,
@@ -67,7 +68,7 @@ export function registerIpc(): void {
 
   // Kanaly recordera (ukryte okno → main).
   ipcMain.on('record:level', (_e, level: number) => sendOverlayLevel(level))
-  ipcMain.on('record:error', (_e, message: string) => handleAudioError(message))
+  ipcMain.on('record:error', (_e, failure: RecorderFailure) => handleAudioError(failure))
   ipcMain.handle('record:audio', (_e, wav: ArrayBuffer, durationMs: number) =>
     handleAudio(Buffer.from(wav), durationMs)
   )

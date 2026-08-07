@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { RecorderFailure } from '../shared/failure.js'
 import type {
   AppStatus,
   AutomationStatus,
@@ -64,7 +65,7 @@ const recorderApi = {
     ipcRenderer.on('record:cancel', () => cb())
   },
   sendLevel: (level: number): void => ipcRenderer.send('record:level', level),
-  sendError: (message: string): void => ipcRenderer.send('record:error', message),
+  sendError: (failure: RecorderFailure): void => ipcRenderer.send('record:error', failure),
   sendAudio: (wav: ArrayBuffer, durationMs: number): Promise<void> =>
     ipcRenderer.invoke('record:audio', wav, durationMs)
 }

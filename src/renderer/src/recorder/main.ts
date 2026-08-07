@@ -60,10 +60,11 @@ async function start(): Promise<void> {
 
     session = { stream, node, chunks }
   } catch (err) {
+    // Zglaszamy sam rodzaj awarii — tresc dla uzytkownika powstaje w procesie glownym.
     window.recorder.sendError(
       err instanceof Error && err.name === 'NotAllowedError'
-        ? 'Brak zgody na mikrofon'
-        : 'Nie mozna otworzyc mikrofonu'
+        ? { kind: 'microphone' }
+        : { kind: 'no-input' }
     )
   }
 }
@@ -84,7 +85,7 @@ function teardown(): Session | null {
 async function stop(): Promise<void> {
   const active = teardown()
   if (!active) {
-    window.recorder.sendError('Nagrywanie nie bylo aktywne')
+    window.recorder.sendError({ kind: 'not-recording' })
     return
   }
 

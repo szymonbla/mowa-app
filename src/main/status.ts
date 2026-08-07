@@ -1,6 +1,6 @@
 import type { AppError, AppStatus, KeyHealth, ProviderId } from '../shared/types.js'
+import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
 import { getProvider } from './providers/index.js'
-import { ProviderError } from './providers/types.js'
 import { getApiKey, getModel } from './settings.js'
 import { silentWav } from '../shared/wav.js'
 import { getSettingsWindow } from './windows.js'
@@ -37,11 +37,6 @@ export function setKeyHealth(provider: ProviderId, health: KeyHealth): KeyHealth
   return health
 }
 
-/** True dla kodow, ktore znacza klucz jako zly, a nie chwilowa awarie. */
-export function isKeyRejection(err: unknown): boolean {
-  return err instanceof ProviderError && (err.status === 401 || err.status === 403)
-}
-
 /**
  * Wysyla 0,5 s ciszy do dostawcy. Pusty transkrypt jest oczekiwany — liczy sie
  * kod HTTP. To ta sama sciezka, ktorej uzywa przycisk "Test" w ustawieniach,
@@ -62,16 +57,11 @@ export async function checkKey(provider: ProviderId): Promise<KeyHealth> {
     })
     return setKeyHealth(provider, { state: 'ok' })
   } catch (err) {
-    if (isKeyRejection(err)) {
-      return setKeyHealth(provider, { state: 'invalid', message: (err as ProviderError).message })
-    }
+    // Ta sama tresc, ktora zobaczylby uzytkownik w pigulce po nieudanym dyktowaniu.
+    const failure = toFailure(err)
+    const { message } = describe(failure)
+    if (isKeyRejection(failure)) return setKeyHealth(provider, { state: 'invalid', message })
     // Brak sieci albo awaria dostawcy. Klucz moze byc dobry — nie oskarzamy go.
-    return setKeyHealth(provider, { state: 'error', message: describeCheckError(err) })
+    return setKeyHealth(provider, { state: 'error', message })
   }
-}
-
-function describeCheckError(err: unknown): string {
-  if (err instanceof ProviderError) return err.message
-  if (err instanceof TypeError) return 'Brak polaczenia'
-  return err instanceof Error ? err.message.slice(0, 120) : 'Nieznany blad'
 }
