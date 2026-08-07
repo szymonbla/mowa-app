@@ -1,0 +1,31 @@
+{
+  "name": "simplewhisper",
+  "version": "1.0.0",
+  "description": "Dyktowanie glosowe na macOS",
+  "main": "./out/main/index.js",
+  "author": "szymon",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/dev-plist.js",
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:mac": "npm run build && electron-builder --mac --arm64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
+  }
+}

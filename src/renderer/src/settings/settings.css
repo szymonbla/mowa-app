@@ -1,0 +1,702 @@
+/*
+ * Jedna rodzina szarosci + jeden akcent. Zolty niesie wylacznie stan:
+ * zaznaczenie, fokus i "wymaga uwagi". Kolor uzyty wszedzie nic nie znaczy.
+ */
+:root {
+  --bg: #161615;
+  --sidebar: #101010;
+  --surface: #1c1c1a;
+  --surface-2: #24241f;
+  --border: #2c2c28;
+  --hover: rgb(255 255 255 / 5%);
+  --text: #e8e6e1;
+  /* Podniesiony wzgledem #8a8880 — 11,5 px potrzebuje kontrastu min. 4,5:1. */
+  --text-dim: #96948c;
+  --accent: #e8c547;
+  --accent-soft: rgb(232 197 71 / 12%);
+  --danger: #c4574a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Fokus musi byc widoczny — obsluga z klawiatury bez tego jest niemozliwa. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Szanujemy systemowe ograniczenie animacji. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #33332e;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+/* --- Szkielet --- */
+
+.shell {
+  display: flex;
+  height: 100%;
+}
+
+.sidebar {
+  width: 190px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+}
+
+/* Miejsce na przyciski okna (titleBarStyle: hiddenInset). Obszar przeciaga okno. */
+.sidebar-top {
+  height: 46px;
+  flex: none;
+  -webkit-app-region: drag;
+}
+
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 10px;
+}
+
+.nav-sep {
+  height: 1px;
+  margin: 9px 10px;
+  background: var(--border);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  /* 34 px wysokosci celu — prawo Fittsa: caly wiersz jest klikalny. */
+  padding: 7px 9px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.nav-item + .nav-item,
+.nav-sep + .nav-item {
+  margin-top: 1px;
+}
+
+.nav-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.nav-item[aria-current='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Zaznaczenie w pasku bocznym — jedyny zolty element w tym obszarze. */
+.nav-item[aria-current='true'] .glyph {
+  color: var(--accent);
+}
+
+.brand {
+  padding: 12px 17px 15px;
+  border-top: 1px solid var(--border);
+}
+
+.brand-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.brand-note {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  -webkit-app-region: drag;
+}
+
+.topbar-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.topbar-note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.pane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 24px 28px;
+}
+
+.pane-head {
+  margin-bottom: 18px;
+}
+
+.pane-head h1 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.pane-head p {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin: 22px 0 8px;
+}
+
+.group-title:first-child {
+  margin-top: 0;
+}
+
+.note {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  margin-top: 14px;
+}
+
+/* --- Ikona wiersza --- */
+
+.glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  flex: none;
+  color: var(--text-dim);
+}
+
+.glyph svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* --- Karta i wiersze --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+}
+
+button.row {
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+button.row:hover {
+  background: var(--hover);
+}
+
+button.row:focus-visible {
+  outline-offset: -2px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.row-desc {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.row-tail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chevron {
+  font-size: 16px;
+  line-height: 1;
+  color: #5c5a54;
+}
+
+/* Ptaszek wyboru — miejsce zajete zawsze, kolor tylko przy zaznaczeniu. */
+.check {
+  display: flex;
+  width: 18px;
+  flex: none;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.check svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.check.on {
+  visibility: visible;
+}
+
+/* --- Pasek statusu --- */
+
+.strip {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 13px 2px;
+}
+
+.cell {
+  flex: 1;
+  min-width: 0;
+  padding: 0 15px;
+  border-left: 1px solid var(--border);
+}
+
+.cell:first-child {
+  border-left: none;
+}
+
+.cell-value {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-value.attention {
+  color: var(--accent);
+}
+
+/* Czerwien znaczy "zepsute", zolty "niedokonczone". To nie to samo. */
+.cell-value.bad {
+  color: var(--danger);
+}
+
+.cell-keys {
+  height: 23px;
+}
+
+.cell-label {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+/* --- Klawisze --- */
+
+.keys {
+  display: flex;
+  gap: 4px;
+}
+
+.keycap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* --- Odznaki stanu --- */
+
+.badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Stan spelniony jest cichy — nie potrzebuje uwagi. */
+.badge.done {
+  color: var(--text-dim);
+}
+
+/* Stan do zrobienia jest jedynym zoltym elementem w tresci. */
+.badge.todo {
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.badge.bad {
+  color: var(--danger);
+  background: rgb(196 87 74 / 14%);
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+/* --- Czerwona lampka i pasek bledu --- */
+
+/* Kropka przy nazwie. Sam kolor by nie wystarczyl, wiec zawsze towarzyszy jej tekst. */
+.lamp {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgb(196 87 74 / 18%);
+}
+
+.nav-lamp {
+  margin-left: auto;
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border: 1px solid rgb(196 87 74 / 45%);
+  border-radius: 11px;
+  background: rgb(196 87 74 / 12%);
+}
+
+.banner .lamp {
+  margin: 5px 0 0;
+}
+
+.banner-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+/*
+ * Surowa tresc bledu. Do zaznaczenia mysza — inaczej nie da sie jej nikomu przeslac.
+ * Lamana po znakach, bo stderr bywa jednym dlugim ciagiem bez spacji.
+ */
+.banner-detail {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+}
+
+.banner-tail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.banner-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.banner-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* --- Kontrolki --- */
+
+button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: #3e3e37;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Jedno dzialanie glowne na widok — reszta jest neutralna. */
+button.primary {
+  color: #161615;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 500;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #f0d05a;
+  border-color: #f0d05a;
+}
+
+input[type='password'],
+input[type='text'],
+select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 9px;
+  outline: none;
+  user-select: text;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: 28px;
+  /* Strzalka rysowana gradientem — bez plikow SVG. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
+    linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 13px, calc(100% - 10px) 13px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+/* --- Rejestrator skrotu --- */
+
+.shortcut-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.shortcut {
+  min-width: 124px;
+  height: 30px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Tryb nasluchu klawiszy — stan chwilowy, wiec akcent jest uzasadniony. */
+.shortcut.capturing {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- Przelacznik --- */
+
+.switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: none;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 0;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.switch[data-on='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.switch[data-on='true']::after {
+  background: #161615;
+  transform: translateX(16px);
+}
+
+/* --- Klucz API --- */
+
+.key-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.key-field {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.key-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.key-set {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Komunikaty --- */
+
+.hint {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 7px;
+}
+
+.error {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--danger);
+  margin-top: 7px;
+}
+
+.shortcut-wrap .error {
+  text-align: right;
+  max-width: 190px;
+}
+
+.link {
+  align-self: flex-start;
+  margin-top: 9px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.link:hover {
+  color: var(--text);
+}

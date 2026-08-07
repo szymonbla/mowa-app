@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# Vendorowane skille — odtwarzalne ze skills-lock.json, nie zasmiecaja diffow.
+.agents/skills/
+.claude/skills/

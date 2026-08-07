@@ -1,0 +1,25 @@
+appId: com.szymon.simplewhisper
+productName: SimpleWhisper
+directories:
+  buildResources: build
+files:
+  - out/**
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Aplikacja zyje w tray, nie w Docku.
+  extendInfo:
+    LSUIElement: true
+    NSMicrophoneUsageDescription: SimpleWhisper nagrywa Twoj glos, aby zamienic go na tekst.
+    NSAppleEventsUsageDescription: SimpleWhisper wysyla Cmd+V, aby wkleic transkrypcje.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Wlasny certyfikat z Keychain. Podpis ad-hoc resetowalby zgody TCC przy kazdym buildzie.
+  identity: SimpleWhisper Local
+  notarize: false
+dmg:
+  artifactName: ${productName}-${version}-${arch}.dmg

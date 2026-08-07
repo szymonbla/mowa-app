@@ -1,0 +1,36 @@
+import type { TranscribeOptions, TranscriptionProvider } from './types.js'
+import { ProviderError, readError, wavBlob } from './types.js'
+
+/**
+ * xAI Grok STT. Endpoint nie przyjmuje pola `model` — jest jeden model STT.
+ * Dlatego `models` jest puste i UI nie pokazuje selektora modelu.
+ */
+export const xai: TranscriptionProvider = {
+  id: 'xai',
+  label: 'xAI Grok',
+  models: [],
+  keyHint: 'xai-…',
+  keysUrl: 'https://console.x.ai/',
+
+  async transcribe(wav: Buffer, opts: TranscribeOptions): Promise<string> {
+    const form = new FormData()
+    // `format=true` wlacza interpunkcje, ale wymaga jawnego jezyka.
+    if (opts.language) {
+      form.append('language', opts.language)
+      form.append('format', 'true')
+    }
+    // xAI wymaga, aby `file` byl ostatnim polem multipart.
+    form.append('file', wavBlob(wav), 'audio.wav')
+
+    const res = await fetch('https://api.x.ai/v1/stt', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${opts.apiKey}` },
+      body: form
+    })
+    if (!res.ok) await readError(res)
+
+    const json = (await res.json()) as { text?: string }
+    if (typeof json.text !== 'string') throw new ProviderError('Brak transkrypcji w odpowiedzi')
+    return json.text
+  }
+}

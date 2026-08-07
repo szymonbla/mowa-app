@@ -1,0 +1,133 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  /* Klikniecia przechodza do aplikacji pod pigulka. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 15px;
+  background: #0a0a0a;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 40%);
+  transform-origin: center;
+  animation: pop 120ms ease-out;
+}
+
+.pill.leaving {
+  animation: shrink 150ms ease-in forwards;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shrink {
+  to {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* --- Sciezka dzwieku --- */
+
+/* Szerokosc = COLS * (BAR_W + GAP) = 16 * 4. Musi zgadzac sie z Overlay.tsx. */
+.track {
+  width: 64px;
+  height: 20px;
+  overflow: hidden;
+  /* Slupki gasna na krawedziach — sciezka wydaje sie ciagnac dalej, poza pigulke. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 15%,
+    #000 85%,
+    transparent 100%
+  );
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  will-change: transform;
+}
+
+.bar {
+  width: 2px;
+  flex: none;
+  border-radius: 1px;
+  /* Slupek rosnie symetrycznie w gore i w dol — jak sciezka w edytorze audio.
+     Bez transition: wysokosc zmienia sie raz na kolumne, przesuw robi transform. */
+  background: #f2f0eb;
+}
+
+.pill.transcribing .track {
+  animation: breathe 900ms ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pill.done .bar {
+  background: #e8c547;
+}
+
+/*
+ * Komunikat bledu bywa zdaniem, nie slowem. Bez lamania wystawal poza okno
+ * (220 px) i widac bylo jego srodek — pigulka rosnie w gore zamiast w bok.
+ */
+.pill.error {
+  height: auto;
+  min-height: 30px;
+  max-width: 200px;
+  padding: 7px 12px;
+  border-radius: 13px;
+}
+
+.message {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  line-height: 1.35;
+  text-align: center;
+  color: #c4574a;
+}
