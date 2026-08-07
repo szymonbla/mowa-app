@@ -73,6 +73,13 @@ export interface DictationHost {
   correct(text: string, speechMs: number): Promise<Correction>
   /** Rozgrzewka polaczenia do korekty. Idzie w tle, nikt na nia nie czeka. */
   warmCorrector(): void
+  /**
+   * Log transkryptow — zapis surowego tekstu. Zwraca `id` wpisu albo `null`, gdy log
+   * jest wylaczony. Stoi obok dyktowania, wiec nie ma prawa rzucic ani opoznic.
+   */
+  logRaw(raw: string, speechMs: number): string | null
+  /** Domkniecie wpisu. `null` = korekta w ogole nie startowala. */
+  logDone(id: string, correction: Correction | null): void
   paste(text: string): Promise<void>
   /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
   timer(ms: number, fn: () => void): () => void
@@ -221,7 +228,15 @@ export function createDictation(host: DictationHost): Dictation {
       // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
       host.setKeyHealth(provider, { state: 'ok' })
 
+      // Zapis surowego idzie **przed** korekta, wiec awaria w jej trakcie nie kasuje
+      // materialu. Wpis zaczyna sie dopiero tutaj: przerwana transkrypcja nie zostawia
+      // w logu niczego, bo nie ma jeszcze tekstu, ktory bylby czegokolwiek warty.
+      const entry = host.logRaw(trimmed, recording.durationMs)
+
       const correction = cleanup ? await correct(trimmed, recording.durationMs) : null
+      // Domkniecie przed sprawdzeniem Esc — anulowane dyktowanie ma taki sam wpis jak
+      // kazde inne, a wpis niedomkniety nie nadaje sie do niczego.
+      if (entry) host.logDone(entry, correction)
       // Esc w trakcie korekty: wynik jest juz niczyj, tak samo jak transkrypcja.
       if (mine !== run) return
 

@@ -2,6 +2,7 @@ import { createDictation } from './dictation.js'
 import type { DictationHost } from './dictation.js'
 import { transcribe } from './providers/index.js'
 import { createCorrector } from './cleanup/index.js'
+import { appendLine, createTranscriptLog } from './transcripts.js'
 import { providerLabel } from '../shared/providers.js'
 import { getApiKey, getModel, getSettings } from './settings.js'
 import { pasteText } from './paste.js'
@@ -18,6 +19,12 @@ const corrector = createCorrector({
   provider: () => getSettings().provider,
   apiKey: getApiKey,
   dictionary: () => []
+})
+
+/** Log stoi obok dyktowania: wlasny przelacznik, wlasne zycie, zero wplywu na wynik. */
+const log = createTranscriptLog({
+  enabled: () => getSettings().transcripts,
+  append: appendLine
 })
 
 /** Adapter na Electron. Drugi adapter tej samej krawedzi — pamieciowy — zyje w testach. */
@@ -46,6 +53,8 @@ const host: DictationHost = {
   transcribe,
   correct: corrector.correct,
   warmCorrector: corrector.warm,
+  logRaw: (raw, speechMs) => log.open(raw, getSettings().language, speechMs),
+  logDone: log.close,
   paste: pasteText,
   timer(ms, fn) {
     const id = setTimeout(fn, ms)

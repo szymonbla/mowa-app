@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
 import { LANGUAGES } from '../../../shared/languages.js'
 import { Glyph } from './Icon.js'
@@ -27,6 +28,9 @@ export function GeneralPane({
   onRequestAutomation
 }: Props): React.JSX.Element {
   const language = LANGUAGES.find((l) => l.id === settings.language)
+  // Kasowanie jest nieodwracalne, a plik zbiera sie miesiacami. Potwierdzenie robi sam
+  // przycisk — okno dialogowe zablokowaloby renderera dla jednego klikniecia.
+  const [confirming, setConfirming] = useState(false)
 
   return (
     <>
@@ -79,6 +83,63 @@ export function GeneralPane({
               aria-label="Poprawiaj podyktowany tekst"
               onClick={() => onPatch({ cleanup: !settings.cleanup })}
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="group-title">Transkrypty</div>
+
+      {/*
+        Przelacznik **osobny** od korekty. Sklejenie ich odbieraloby wybor: to dwie
+        rozne decyzje i inaczej wazy je prywatnosc.
+      */}
+      <div className="card">
+        <div className="row">
+          <Glyph name="record" />
+          <div className="row-main">
+            <div className="row-title">Zapisuj transkrypty na dysku</div>
+            <div className="row-desc">
+              Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — po to, zeby
+              dalo sie sprawdzic, czy korekta pomaga. Plik nie idzie do kopii zapasowej.
+              Nic go nie kasuje samo.
+            </div>
+          </div>
+          <div className="row-tail">
+            <button
+              className="switch"
+              data-on={settings.transcripts}
+              role="switch"
+              aria-checked={settings.transcripts}
+              aria-label="Zapisuj transkrypty na dysku"
+              onClick={() => onPatch({ transcripts: !settings.transcripts })}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          <Glyph name="lock" />
+          <div className="row-main">
+            <div className="row-title">Plik z transkryptami</div>
+            <div className="row-desc">
+              Zawiera wszystko, co podyktowales. Przegladaj go w edytorze — okna historii
+              tu nie ma.
+            </div>
+          </div>
+          <div className="row-tail">
+            <button onClick={() => void window.api.showTranscripts()}>Pokaz</button>
+            {confirming ? (
+              <button
+                className="primary"
+                onClick={() => {
+                  void window.api.clearTranscripts()
+                  setConfirming(false)
+                }}
+              >
+                Na pewno?
+              </button>
+            ) : (
+              <button onClick={() => setConfirming(true)}>Wyczysc</button>
+            )}
           </div>
         </div>
       </div>

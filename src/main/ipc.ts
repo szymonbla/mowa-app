@@ -21,6 +21,7 @@ import { sendOverlayLevel } from './windows.js'
 import { setLaunchAtLogin } from './autostart.js'
 import { refreshTrayMenu } from './tray.js'
 import { checkKey, getStatus, setError } from './status.js'
+import { clearTranscripts, LOG_PATH } from './transcripts.js'
 
 export function registerIpc(): void {
   ipcMain.handle('settings:get', () => getSettings())
@@ -65,6 +66,11 @@ export function registerIpc(): void {
   ipcMain.handle('permissions:requestAx', () => requestAccessibility())
   ipcMain.handle('permissions:requestAutomation', () => requestAutomation())
   ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))
+
+  // Zamiast przegladarki historii — dwa przyciski. Lista ostatnich transkryptow
+  // w ustawieniach to juz przegladarka, tylko ubozsza, a ta jest poza zakresem.
+  ipcMain.handle('transcripts:show', () => shell.showItemInFolder(LOG_PATH))
+  ipcMain.handle('transcripts:clear', () => clearTranscripts())
 
   // Kanaly recordera (ukryte okno → main).
   ipcMain.on('record:level', (_e, level: number) => sendOverlayLevel(level))

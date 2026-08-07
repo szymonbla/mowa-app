@@ -42,7 +42,11 @@ const api = {
   requestAutomation: (): Promise<AutomationStatus> =>
     ipcRenderer.invoke('permissions:requestAutomation'),
 
-  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open', url)
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open', url),
+
+  // --- Log transkryptow. Renderer nie czyta pliku, tylko go pokazuje albo kasuje. ---
+  showTranscripts: (): Promise<void> => ipcRenderer.invoke('transcripts:show'),
+  clearTranscripts: (): Promise<void> => ipcRenderer.invoke('transcripts:clear')
 }
 
 const overlayApi = {

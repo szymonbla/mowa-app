@@ -19,7 +19,9 @@ const realFetch = globalThis.fetch
 
 /** Podstawiony fetch: zapisuje zadanie i oddaje ustalona odpowiedz. */
 function stubFetch(res: Response): void {
-  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  // `RequestInfo` to typ DOM, a projekt kompiluje sie na `lib: ES2023`.
+  type Input = Parameters<typeof fetch>[0]
+  globalThis.fetch = (input: Input, init?: RequestInit): Promise<Response> => {
     const form = init?.body as FormData
     sent = {
       url: String(input),

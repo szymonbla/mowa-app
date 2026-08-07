@@ -15,6 +15,12 @@ export interface Settings {
   launchAtLogin: boolean
   /** Korekta podyktowanego tekstu przez LLM. Domyslnie wlaczona. */
   cleanup: boolean
+  /**
+   * Log transkryptow na dysku. Przelacznik **osobny** od korekty: to dwie rozne
+   * decyzje i inaczej wazy je prywatnosc. Domyslnie wlaczony — instalacja jest
+   * jednoosobowa; dystrybucja do innych osob otwiera te decyzje z powrotem.
+   */
+  transcripts: boolean
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */

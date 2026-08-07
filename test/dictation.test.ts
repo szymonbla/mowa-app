@@ -3,8 +3,10 @@ import { createDictation } from '../src/main/dictation.js'
 import type { Dictation, DictationHost } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
-import type { Correction } from '../src/main/cleanup/index.js'
+import type { Attempt, Correction } from '../src/main/cleanup/index.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
+
+const ATTEMPT: Attempt = { provider: 'xai', model: 'grok-test', ms: 120 }
 
 interface Timer {
   ms: number
@@ -31,6 +33,10 @@ interface Fake {
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
   cleanup: boolean
+  /** Przelacznik logu — osobny od korekty, tak samo jak w ustawieniach. */
+  transcripts: boolean
+  /** Co trafilo do logu transkryptow: zapis 1 i zapis 2, w kolejnosci. */
+  log: { open: string[]; close: { id: string; correction: Correction | null }[] }
   warmed: number
   transcribe: () => Promise<string>
   correct: (text: string, speechMs: number) => Promise<Correction>
@@ -53,9 +59,12 @@ function fake(): Fake {
     micGranted: true,
     language: 'pl',
     cleanup: false,
+    transcripts: true,
+    log: { open: [], close: [] },
     warmed: 0,
     transcribe: () => Promise.resolve('Dzien dobry'),
-    correct: (text) => Promise.resolve<Correction>({ kind: 'corrected', text }),
+    correct: (text) =>
+      Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT }),
     lastTimer: () => f.timers[f.timers.length - 1]
   }
 
@@ -100,6 +109,14 @@ function fake(): Fake {
     correct: (text, speechMs) => f.correct(text, speechMs),
     warmCorrector: () => {
       f.warmed++
+    },
+    logRaw: (raw) => {
+      if (!f.transcripts) return null
+      f.log.open.push(raw)
+      return `wpis-${f.log.open.length}`
+    },
+    logDone: (id, correction) => {
+      f.log.close.push({ id, correction })
     },
     paste: (text) => {
       f.pasted.push(text)
@@ -338,7 +355,8 @@ suite('korekta w sciezce dyktowania', () => {
 
   it('wkleja wersje poprawiona i pokazuje faze korekty', async () => {
     const f = fake()
-    f.correct = (text) => Promise.resolve<Correction>({ kind: 'corrected', text: `${text}.` })
+    f.correct = (text) =>
+      Promise.resolve<Correction>({ kind: 'corrected', text: `${text}.`, attempt: ATTEMPT })
 
     await withCleanup(f).submit(audio())
 
@@ -372,7 +390,8 @@ suite('korekta w sciezce dyktowania', () => {
     f.correct = () =>
       Promise.resolve<Correction>({
         kind: 'failed',
-        failure: { kind: 'cleanup', reason: 'budget' }
+        failure: { kind: 'cleanup', reason: 'budget' },
+        attempt: ATTEMPT
       })
 
     await withCleanup(f).submit(audio())
@@ -388,7 +407,8 @@ suite('korekta w sciezce dyktowania', () => {
     f.correct = () =>
       Promise.resolve<Correction>({
         kind: 'failed',
-        failure: { kind: 'cleanup', reason: 'provider', detail: 'HTTP 401' }
+        failure: { kind: 'cleanup', reason: 'provider', detail: 'HTTP 401' },
+        attempt: ATTEMPT
       })
 
     await withCleanup(f).submit(audio())
@@ -422,11 +442,87 @@ suite('korekta w sciezce dyktowania', () => {
     f.correct = (text) =>
       new Promise<Correction>((resolve) => {
         dictation.cancel()
-        resolve({ kind: 'corrected', text })
+        resolve({ kind: 'corrected', text, attempt: ATTEMPT })
       })
 
     await dictation.submit(audio())
 
     expect(f.pasted).toEqual([])
+  })
+})
+
+suite('log transkryptow w sciezce dyktowania', () => {
+  function withCleanup(f: Fake): Dictation {
+    f.cleanup = true
+    return recorded(f)
+  }
+
+  it('zapisuje surowy tekst, zanim zawola korekte', async () => {
+    const f = fake()
+    const order: string[] = []
+    f.correct = () => {
+      order.push('correct')
+      const text = 'Dzień dobry.'
+      return Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT })
+    }
+    const dictation = withCleanup(f)
+    const logRaw = f.host.logRaw
+    f.host.logRaw = (raw, speechMs) => {
+      order.push('logRaw')
+      return logRaw(raw, speechMs)
+    }
+
+    await dictation.submit(audio())
+
+    // Kolejnosc jest cala wartoscia tego zapisu: awaria w trakcie korekty nie ma
+    // prawa zabrac materialu, ktory juz istnieje.
+    expect(order).toEqual(['logRaw', 'correct'])
+    expect(f.log.open).toEqual(['Dzien dobry'])
+  })
+
+  it('domyka wpis takze wtedy, gdy korekta w ogole nie startowala', async () => {
+    const f = fake()
+
+    // Przelacznik korekty wylaczony: zapis 2 idzie natychmiast po zapisie 1.
+    await recorded(f).submit(audio())
+
+    expect(f.log.open).toEqual(['Dzien dobry'])
+    expect(f.log.close).toEqual([{ id: 'wpis-1', correction: null }])
+  })
+
+  it('domyka wpis po Esc w trakcie korekty', async () => {
+    const f = fake()
+    const dictation = withCleanup(f)
+    f.correct = (text) =>
+      new Promise<Correction>((resolve) => {
+        dictation.cancel()
+        resolve({ kind: 'corrected', text, attempt: ATTEMPT })
+      })
+
+    await dictation.submit(audio())
+
+    // Tekst przepadl, ale wpis nie: niedomkniety nie nadaje sie do niczego,
+    // a anulowane dyktowanie jest dla oceny tak samo dobre jak kazde inne.
+    expect(f.pasted).toEqual([])
+    expect(f.log.close).toHaveLength(1)
+  })
+
+  it('nie domyka wpisu, ktory nie powstal', async () => {
+    const f = fake()
+    f.transcripts = false
+
+    await withCleanup(f).submit(audio())
+
+    expect(f.log.open).toEqual([])
+    expect(f.log.close).toEqual([])
+  })
+
+  it('nie zapisuje niczego, gdy transkrypcja nie dala tekstu', async () => {
+    const f = fake()
+    f.transcribe = () => Promise.resolve('   ')
+
+    await withCleanup(f).submit(audio())
+
+    expect(f.log.open).toEqual([])
   })
 })

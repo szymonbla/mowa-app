@@ -13,6 +13,7 @@ import {
 } from './windows.js'
 import { syncLaunchAtLogin } from './autostart.js'
 import { checkKey, onStatusChanged } from './status.js'
+import { initTranscripts } from './transcripts.js'
 
 // Druga instancja przechwycilaby skrot globalny i nagrywala rownolegle.
 if (!app.requestSingleInstanceLock()) app.quit()
@@ -32,6 +33,10 @@ app.whenReady().then(() => {
 
   // Diagnostyka trafia do okna ustawien tylko stad — sam status o oknach nie wie.
   onStatusChanged(sendStatus)
+
+  // Katalog logu robimy zawsze, takze przy wylaczonym przelaczniku: wykluczenie
+  // z Time Machine ma juz obowiazywac, gdy uzytkownik go wlaczy.
+  initTranscripts()
 
   registerIpc()
   createTray()

@@ -1,11 +1,29 @@
 import { toFailure } from '../../shared/failure.js'
-import type { Failure } from '../../shared/failure.js'
+import type { CleanupReason, Failure } from '../../shared/failure.js'
 import type { ProviderId } from '../../shared/types.js'
 import { pickCorrector, send, warm } from './chat.js'
 import type { ChatSpec, SendOptions } from './chat.js'
 import { guard } from './guard.js'
+import type { GuardLayer } from './guard.js'
 import { messages } from './prompt.js'
 import { budgetMs, MAX_WORDS, maxOutputTokens, stripFillers, wordCount } from './text.js'
+
+/**
+ * Kto poprawial i jak dlugo. Istnieje wylacznie dla logu transkryptow — wpis bez tego
+ * nie mowi, ktory model wyprodukowal wynik, wiec nie da sie z niego zbudowac oceny.
+ * Powstaje dopiero po wybraniu korektora, wiec `skipped` go nie ma.
+ */
+export interface Attempt {
+  provider: ProviderId
+  model: string
+  /** Od wyslania zadania do werdyktu strazy. */
+  ms: number
+  /** Warstwa, ktora odrzucila wynik. Tylko przy odrzuceniu przez straz. */
+  rejectedBy?: GuardLayer
+}
+
+/** Awaria korekty jest zawsze `cleanup` — patrz `reason()` na dole pliku. */
+export type CleanupFailure = Extract<Failure, { kind: 'cleanup' }>
 
 /**
  * Wynik korekty. Trzy stany, bo trzy roznie wygladaja dla uzytkownika:
@@ -14,9 +32,9 @@ import { budgetMs, MAX_WORDS, maxOutputTokens, stripFillers, wordCount } from '.
  * W dwoch ostatnich wkleja sie tekst surowy — zawsze.
  */
 export type Correction =
-  | { kind: 'corrected'; text: string }
+  | { kind: 'corrected'; text: string; attempt: Attempt }
   | { kind: 'skipped'; reason: SkipReason }
-  | { kind: 'failed'; failure: Failure }
+  | { kind: 'failed'; failure: CleanupFailure; attempt: Attempt }
 
 /** 'nothing' = po wycieciu wypelniaczy nie zostalo nic do poprawiania. */
 export type SkipReason = 'too-long' | 'no-corrector' | 'nothing'
@@ -32,6 +50,8 @@ export interface CorrectorDeps {
   dictionary?(): readonly string[]
   /** Szew do testow — realna implementacja siedzi w `chat.ts`. */
   send?(spec: ChatSpec, opts: SendOptions): Promise<string>
+  /** Szew do testow. Mierzy tylko czas trwania, wiec zrodlo jest bez znaczenia. */
+  clock?(): number
 }
 
 export interface Corrector {
@@ -42,6 +62,7 @@ export interface Corrector {
 
 export function createCorrector(deps: CorrectorDeps): Corrector {
   const transport = deps.send ?? send
+  const clock = deps.clock ?? Date.now
   const hasKey = (provider: ProviderId): boolean => Boolean(deps.apiKey(provider))
   const spec = (): ChatSpec | null => pickCorrector(deps.provider(), hasKey)
 
@@ -65,6 +86,13 @@ export function createCorrector(deps: CorrectorDeps): Corrector {
     // `AbortController` na calej sciezce, nie sam `setTimeout` — inaczej zadanie
     // leci dalej po uplywie budzetu i moze wrocic, gdy surowy tekst juz sie wkleil.
     const stop = setTimeout(() => controller.abort(), budgetMs(speechMs))
+    const started = clock()
+    const attempt = (rejectedBy?: GuardLayer): Attempt => ({
+      provider: chat.id,
+      model: chat.model,
+      ms: clock() - started,
+      ...(rejectedBy ? { rejectedBy } : {})
+    })
     try {
       const raw = await transport(chat, {
         apiKey,
@@ -73,11 +101,14 @@ export function createCorrector(deps: CorrectorDeps): Corrector {
         signal: controller.signal
       })
       const verdict = guard(cleaned, raw)
-      if (!verdict.ok) return failed('guard', verdict.layer)
-      return { kind: 'corrected', text: verdict.text }
+      if (!verdict.ok) return failed('guard', verdict.layer, attempt(verdict.layer))
+      return { kind: 'corrected', text: verdict.text, attempt: attempt() }
     } catch (err) {
-      if (controller.signal.aborted) return failed('budget', `${Math.round(budgetMs(speechMs))} ms`)
-      return failed(...reason(err))
+      if (controller.signal.aborted) {
+        return failed('budget', `${Math.round(budgetMs(speechMs))} ms`, attempt())
+      }
+      const [why, detail] = reason(err)
+      return failed(why, detail, attempt())
     } finally {
       clearTimeout(stop)
     }
@@ -86,8 +117,8 @@ export function createCorrector(deps: CorrectorDeps): Corrector {
   return { correct, warm: () => warm(spec()) }
 }
 
-function failed(reason: 'budget' | 'guard' | 'provider' | 'network', detail: string): Correction {
-  return { kind: 'failed', failure: { kind: 'cleanup', reason, detail } }
+function failed(reason: CleanupReason, detail: string, attempt: Attempt): Correction {
+  return { kind: 'failed', failure: { kind: 'cleanup', reason, detail }, attempt }
 }
 
 /**

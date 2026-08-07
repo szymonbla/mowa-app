@@ -15,7 +15,8 @@ const DEFAULTS: Settings = {
   models: { ...DEFAULT_MODELS },
   language: 'pl',
   launchAtLogin: false,
-  cleanup: true
+  cleanup: true,
+  transcripts: true
 }
 
 let filePath = ''
