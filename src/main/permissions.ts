@@ -12,8 +12,13 @@ const MICROPHONE_PANE =
 const AUTOMATION_PANE =
   'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'
 
-/** Najtansze zapytanie, jakie da sie wyslac do System Events. */
-const PROBE_SCRIPT = 'tell application "System Events" to return 1'
+/**
+ * Sonda musi pytac o prawdziwa wlasciwosc celu. AppleScript odpowiada sam na
+ * `return 1`, `return name` i `return version` — nie wysyla wtedy zadnego Apple
+ * Eventu, wiec taka sonda zawsze "przechodzi". `UI elements enabled` to jedno
+ * pole, ale po nie trzeba juz pojsc do System Events.
+ */
+const PROBE_SCRIPT = 'tell application "System Events" to return UI elements enabled'
 
 /**
  * Sonda pokazuje monit TCC, wiec nie wolno jej uruchamiac przy starcie —
@@ -64,13 +69,29 @@ export async function requestAccessibility(): Promise<boolean> {
  * w Info.plist. Bez tego wpisu macOS odmawia bez pytania.
  */
 export async function requestAutomation(): Promise<AutomationStatus> {
+  if (await probe()) {
+    automation = 'granted'
+    return automation
+  }
+
+  // Zapytanie, ktore wywolalo monit, konczy sie bledem -1743 takze wtedy, gdy
+  // uzytkownik wlasnie kliknal "Zezwol". Dopiero druga proba mowi prawde.
+  if (await probe()) {
+    automation = 'granted'
+    return automation
+  }
+
+  automation = 'denied'
+  // Po odmowie monit juz nie wroci — zgode wlacza sie recznie.
+  await shell.openExternal(AUTOMATION_PANE)
+  return automation
+}
+
+async function probe(): Promise<boolean> {
   try {
     await execFileAsync('osascript', ['-e', PROBE_SCRIPT], { timeout: 120_000 })
-    automation = 'granted'
+    return true
   } catch {
-    automation = 'denied'
-    // Po odmowie monit juz nie wroci — zgode wlacza sie recznie.
-    await shell.openExternal(AUTOMATION_PANE)
+    return false
   }
-  return automation
 }

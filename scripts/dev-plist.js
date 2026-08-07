@@ -1,16 +1,17 @@
 /**
- * Odblokowuje wklejanie w trybie dev.
+ * Krok awaryjny, nie czesc `npm run dev`. Uruchamiac recznie: `npm run dev:plist`.
  *
- * W dev nie dziala zbudowana appka, tylko `node_modules/electron/dist/Electron.app`.
- * Jej Info.plist nie ma `NSAppleEventsUsageDescription`, a bez tego wpisu macOS
- * odrzuca Apple Events bez pokazania monitu — osascript zwraca -1743 i Cmd+V
- * nigdy nie dochodzi. Zbudowana appka ma ten wpis z electron-builder.yml.
+ * Dopisuje `NSAppleEventsUsageDescription` do `node_modules/electron/dist/Electron.app`
+ * i podpisuje ja na nowo (zmiana Info.plist lamie pieczec podpisu, a bez podpisu
+ * Electron nie wystartuje na Apple Silicon).
  *
- * Zmiana Info.plist lamie pieczec podpisu, wiec zaraz po niej podpisujemy appke
- * na nowo (ad-hoc). Na Apple Silicon bez podpisu Electron by sie nie uruchomil.
+ * UWAGA: przy starcie z terminala macOS przypisuje Apple Events **terminalowi**,
+ * a nie Electronowi — to terminal jest procesem odpowiedzialnym za cale drzewo.
+ * Wtedy ten skrypt nic nie zmienia, a zgode trzeba nadac terminalowi. Ma sens
+ * tylko, gdy TCC wskazuje na sam Electron — np. przy starcie przez `open -a`.
  *
- * Skrypt jest idempotentny i cichy, gdy nie ma nic do zrobienia. Uruchamiac
- * ponownie po kazdym `npm install` — pobiera on swiezy katalog `dist`.
+ * Koszt: nowy podpis to dla macOS nowa aplikacja. Zgody TCC i wpisy Keychain
+ * przypisane staremu podpisowi przepadaja.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -20,7 +21,8 @@ const PLIST = `${APP}/Contents/Info.plist`
 const KEY = 'NSAppleEventsUsageDescription'
 const VALUE = 'SimpleWhisper wysyla Cmd+V, aby wkleic transkrypcje.'
 
-// Furtka: przywrocenie oryginalnego podpisu to `npm i electron --force`.
+// Cofniecie podpisu: skasuj `node_modules/electron/dist` i uruchom
+// `node node_modules/electron/install.js` — samo `npm install` nie pobiera `dist`.
 if (process.env.SW_SKIP_PLIST) {
   console.log('[dev-plist] SW_SKIP_PLIST — pomijam; Cmd+V nie zadziala w dev')
   process.exit(0)

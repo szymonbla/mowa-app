@@ -7,8 +7,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/dev-plist.js",
     "dev": "electron-vite dev",
+    "dev:plist": "node scripts/dev-plist.js",
     "start": "electron-vite preview",
     "build": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
