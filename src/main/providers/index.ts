@@ -1,17 +1,18 @@
 import type { ProviderId } from '../../shared/types.js'
-import type { TranscriptionProvider } from './types.js'
-import { xai } from './xai.js'
-import { openai } from './openai.js'
-import { elevenlabs } from './elevenlabs.js'
+import { specFor } from './spec.js'
+import { transcribeWith } from './request.js'
+import type { TranscribeOptions } from './spec.js'
 
-/** Same implementacje. Zestaw dostawcow deklaruje katalog w `src/shared/providers.ts`. */
-const transcribers: TranscriptionProvider[] = [xai, openai, elevenlabs]
-
-export function getProvider(id: ProviderId): TranscriptionProvider {
-  const found = transcribers.find((p) => p.id === id)
-  // Wpis w katalogu bez implementacji to blad programisty, nie awaria do pokazania.
-  if (!found) throw new Error(`Brak implementacji dostawcy: ${id}`)
-  return found
+/**
+ * Transkrypcja przez wybranego dostawce. Dostawca jest opisany (`spec.ts`), nie
+ * zaimplementowany — zadanie robi jeden wspolny kod (`request.ts`).
+ */
+export function transcribe(
+  provider: ProviderId,
+  wav: Buffer,
+  opts: TranscribeOptions
+): Promise<string> {
+  return transcribeWith(specFor(provider), wav, opts)
 }
 
-export type { TranscriptionProvider }
+export type { TranscribeOptions }

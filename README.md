@@ -132,7 +132,8 @@ src/main/            proces glowny
   paste.ts           clipboard.writeText + osascript Cmd+V, rozpoznanie odmowy TCC
   permissions.ts     mikrofon, Accessibility, Automatyzacja
   status.ts          stan klucza API i ostatni blad; push przez listenera z index.ts
-  providers/         same implementacje transkrypcji: xai.ts, openai.ts, elevenlabs.ts
+  providers/         spec.ts — opis kazdego dostawcy (adres, naglowek klucza, pola
+                     multipart); request.ts — jedno zadanie dla wszystkich
 src/preload/         contextBridge — renderer nie widzi kluczy API, tylko maske
 src/renderer/
   src/settings/      okno ustawien (React)
@@ -148,7 +149,8 @@ src/shared/
 ```
 
 Dodanie dostawcy STT to wpis w `src/shared/providers.ts` (nazwa, modele, podpowiedz klucza,
-adres po klucz) i modul z `transcribe` w `src/main/providers/`. Lista w ustawieniach,
+adres po klucz) i wpis w `src/main/providers/spec.ts` (adres, naglowek klucza, pola
+multipart). Kodu zadania sie nie pisze — jest jeden. Lista w ustawieniach,
 domyslny model, mapa stanu kluczy i lampka zdrowia klucza powstaja z katalogu same.
 Tak samo jezyk: jeden wpis w `src/shared/languages.ts`. Wpis z `spoken: false` (dzis
 **Auto**) nie idzie do dostawcy — dostawca ma rozpoznac jezyk sam.

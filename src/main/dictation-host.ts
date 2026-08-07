@@ -1,6 +1,6 @@
 import { createDictation } from './dictation.js'
 import type { DictationHost } from './dictation.js'
-import { getProvider } from './providers/index.js'
+import { transcribe } from './providers/index.js'
 import { providerLabel } from '../shared/providers.js'
 import { getApiKey, getModel, getSettings } from './settings.js'
 import { pasteText } from './paste.js'
@@ -31,7 +31,7 @@ const host: DictationHost = {
   hideOverlay,
   setError,
   setKeyHealth,
-  transcribe: (provider, wav, opts) => getProvider(provider).transcribe(wav, opts),
+  transcribe,
   paste: pasteText,
   timer(ms, fn) {
     const id = setTimeout(fn, ms)

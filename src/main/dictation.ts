@@ -2,7 +2,7 @@ import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
 import { spokenLanguage } from '../shared/languages.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
-import type { TranscribeOptions } from './providers/types.js'
+import type { TranscribeOptions } from './providers/index.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
 
