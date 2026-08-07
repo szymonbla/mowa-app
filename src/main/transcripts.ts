@@ -74,7 +74,7 @@ export function outcomeOf(correction: Correction | null): Outcome {
   return `fail:${correction.failure.reason}`
 }
 
-export function closeLine(id: string, correction: Correction | null): CloseLine {
+function closeLine(id: string, correction: Correction | null): CloseLine {
   const attempt = correction && correction.kind !== 'skipped' ? correction.attempt : null
   return {
     id,

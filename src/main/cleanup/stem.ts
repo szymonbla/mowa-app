@@ -28,7 +28,3 @@ function fold(token: string): string {
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
 }
-
-export function stems(list: readonly string[]): string[] {
-  return list.map(stem)
-}

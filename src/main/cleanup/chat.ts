@@ -15,7 +15,8 @@ export interface ChatSpec {
   url: string
   model: string
   auth: { header: string; prefix?: string }
-  body(messages: readonly Message[], maxTokens: number): unknown
+  /** `model` przychodzi z pola obok, zeby wpis w logu nie mogl sklamac o modelu. */
+  body(model: string, messages: readonly Message[], maxTokens: number): unknown
   read(json: unknown): string | null
 }
 
@@ -27,8 +28,8 @@ const SPECS: readonly ChatSpec[] = [
     // Nie brac `grok-4.5`: domyslny effort `high`, rozumowania nie da sie wylaczyc.
     model: 'grok-4.20-0309-non-reasoning',
     auth: { header: 'Authorization', prefix: 'Bearer ' },
-    body: (messages, maxTokens) => ({
-      model: 'grok-4.20-0309-non-reasoning',
+    body: (model, messages, maxTokens) => ({
+      model,
       messages,
       temperature: 0,
       top_p: 1,
@@ -46,8 +47,8 @@ const SPECS: readonly ChatSpec[] = [
     url: 'https://api.openai.com/v1/responses',
     model: 'gpt-5.6-luna',
     auth: { header: 'Authorization', prefix: 'Bearer ' },
-    body: (messages, maxTokens) => ({
-      model: 'gpt-5.6-luna',
+    body: (model, messages, maxTokens) => ({
+      model,
       input: messages,
       // Dokumentacja sama nazywa `none` punktem odniesienia dla latencji.
       reasoning: { effort: 'none' },
@@ -106,7 +107,7 @@ export async function send(spec: ChatSpec, opts: SendOptions): Promise<string> {
       'Content-Type': 'application/json',
       [spec.auth.header]: `${spec.auth.prefix ?? ''}${opts.apiKey}`
     },
-    body: JSON.stringify(spec.body(opts.messages, opts.maxTokens)),
+    body: JSON.stringify(spec.body(spec.model, opts.messages, opts.maxTokens)),
     signal: opts.signal
   })
   if (!res.ok) {
