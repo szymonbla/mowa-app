@@ -2,16 +2,9 @@ import type { TranscribeOptions, TranscriptionProvider } from './types.js'
 import { FailureError } from '../../shared/failure.js'
 import { readError, wavBlob } from './types.js'
 
-/**
- * xAI Grok STT. Endpoint nie przyjmuje pola `model` — jest jeden model STT.
- * Dlatego `models` jest puste i UI nie pokazuje selektora modelu.
- */
+/** xAI Grok STT. Endpoint nie przyjmuje pola `model`, wiec `opts.model` jest tu pusty. */
 export const xai: TranscriptionProvider = {
   id: 'xai',
-  label: 'xAI Grok',
-  models: [],
-  keyHint: 'xai-…',
-  keysUrl: 'https://console.x.ai/',
 
   async transcribe(wav: Buffer, opts: TranscribeOptions): Promise<string> {
     const form = new FormData()

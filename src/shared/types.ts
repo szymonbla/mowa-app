@@ -1,6 +1,10 @@
-export type ProviderId = 'xai' | 'openai' | 'elevenlabs'
+import type { LanguageId } from './languages.js'
+import type { ProviderId } from './providers.js'
 
-export type LanguageId = 'auto' | 'pl' | 'en'
+// Zestaw dostawcow deklaruje `providers.ts`, zestaw jezykow — `languages.ts`.
+// Tu tylko re-eksport, zeby reszta kodu miala jedno miejsce na typy wspolne.
+export type { ProviderId, ProviderMeta } from './providers.js'
+export type { LanguageId, SpokenLanguage } from './languages.js'
 
 export interface Settings {
   shortcut: string
@@ -9,14 +13,6 @@ export interface Settings {
   models: Record<ProviderId, string>
   language: LanguageId
   launchAtLogin: boolean
-}
-
-export interface ProviderMeta {
-  id: ProviderId
-  label: string
-  models: { id: string; label: string }[]
-  keyHint: string
-  keysUrl: string
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */

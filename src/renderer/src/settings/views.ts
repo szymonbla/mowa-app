@@ -1,4 +1,5 @@
 import type { LanguageId } from '../../../shared/types.js'
+import { LANGUAGES } from '../../../shared/languages.js'
 import type { IconName } from './Icon.js'
 
 export type View = 'home' | 'shortcut' | 'model' | 'general'
@@ -17,14 +18,7 @@ export const TITLES: Record<View, { title: string; sub: string }> = {
   general: { title: 'Ustawienia', sub: 'Jezyk, uprawnienia i autostart.' }
 }
 
-export const LANGUAGES: { id: LanguageId; label: string; desc: string }[] = [
-  { id: 'pl', label: 'Polski', desc: 'Wymuszony jezyk polski.' },
-  { id: 'en', label: 'English', desc: 'Wymuszony jezyk angielski.' },
-  { id: 'auto', label: 'Auto', desc: 'Rozpoznawanie jezyka. W Grok bez interpunkcji.' }
-]
-
-export const LANGUAGE_LABELS: Record<LanguageId, string> = {
-  pl: 'Polski',
-  en: 'English',
-  auto: 'Auto'
-}
+/** Sama nazwa jezyka, bez opisu — do wiersza podsumowania na ekranie startowym. */
+export const LANGUAGE_LABELS: Record<LanguageId, string> = Object.fromEntries(
+  LANGUAGES.map((l) => [l.id, l.label] as const)
+) as Record<LanguageId, string>

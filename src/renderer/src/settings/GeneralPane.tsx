@@ -1,6 +1,6 @@
 import type { LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
+import { LANGUAGES } from '../../../shared/languages.js'
 import { Glyph } from './Icon.js'
-import { LANGUAGES } from './views.js'
 
 interface Props {
   settings: Settings

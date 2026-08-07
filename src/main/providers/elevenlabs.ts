@@ -4,10 +4,6 @@ import { readError, wavBlob } from './types.js'
 
 export const elevenlabs: TranscriptionProvider = {
   id: 'elevenlabs',
-  label: 'ElevenLabs',
-  models: [{ id: 'scribe_v2', label: 'scribe_v2' }],
-  keyHint: 'sk_…',
-  keysUrl: 'https://elevenlabs.io/app/settings/api-keys',
 
   async transcribe(wav: Buffer, opts: TranscribeOptions): Promise<string> {
     const form = new FormData()

@@ -1,14 +1,15 @@
 import { FailureError } from '../../shared/failure.js'
-import type { ProviderId, ProviderMeta } from '../../shared/types.js'
+import type { ProviderId, SpokenLanguage } from '../../shared/types.js'
 
 export interface TranscribeOptions {
   apiKey: string
   model: string
   /** Undefined = auto-detekcja jezyka. */
-  language?: 'pl' | 'en'
+  language?: SpokenLanguage
 }
 
-export interface TranscriptionProvider extends ProviderMeta {
+/** Sama transkrypcja. Dane katalogowe dostawcy zyja w `src/shared/providers.ts`. */
+export interface TranscriptionProvider {
   id: ProviderId
   transcribe(wav: Buffer, opts: TranscribeOptions): Promise<string>
 }

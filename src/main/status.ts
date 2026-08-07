@@ -1,5 +1,6 @@
 import type { AppError, AppStatus, KeyHealth, ProviderId } from '../shared/types.js'
 import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
+import { byProvider } from '../shared/providers.js'
 import { getProvider } from './providers/index.js'
 import { getApiKey, getModel } from './settings.js'
 import { silentWav } from '../shared/wav.js'
@@ -9,11 +10,9 @@ import { silentWav } from '../shared/wav.js'
  * Trzymana tylko w pamieci — po restarcie sprawdzamy klucz od nowa, bo mogl
  * wygasnac miedzy uruchomieniami.
  */
-const keyHealth: Record<ProviderId, KeyHealth> = {
-  xai: { state: 'unknown' },
-  openai: { state: 'unknown' },
-  elevenlabs: { state: 'unknown' }
-}
+const keyHealth: Record<ProviderId, KeyHealth> = byProvider<KeyHealth>(() => ({
+  state: 'unknown'
+}))
 
 let lastError: AppError | null = null
 

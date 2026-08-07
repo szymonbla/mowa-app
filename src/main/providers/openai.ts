@@ -4,15 +4,6 @@ import { readError, wavBlob } from './types.js'
 
 export const openai: TranscriptionProvider = {
   id: 'openai',
-  label: 'OpenAI',
-  models: [
-    { id: 'gpt-transcribe', label: 'gpt-transcribe' },
-    { id: 'gpt-4o-transcribe', label: 'gpt-4o-transcribe' },
-    { id: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe' },
-    { id: 'whisper-1', label: 'whisper-1' }
-  ],
-  keyHint: 'sk-…',
-  keysUrl: 'https://platform.openai.com/api-keys',
 
   async transcribe(wav: Buffer, opts: TranscribeOptions): Promise<string> {
     const form = new FormData()

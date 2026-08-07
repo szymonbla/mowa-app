@@ -1,6 +1,7 @@
 import { createDictation } from './dictation.js'
 import type { DictationHost } from './dictation.js'
 import { getProvider } from './providers/index.js'
+import { providerLabel } from '../shared/providers.js'
 import { getApiKey, getModel, getSettings } from './settings.js'
 import { pasteText } from './paste.js'
 import { getPermissions, requestMicrophone } from './permissions.js'
@@ -14,7 +15,7 @@ const host: DictationHost = {
     const { provider, language } = getSettings()
     return {
       provider,
-      providerLabel: getProvider(provider).label,
+      providerLabel: providerLabel(provider),
       model: getModel(provider),
       language
     }

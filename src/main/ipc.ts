@@ -8,7 +8,7 @@ import {
   patchSettings,
   setApiKey
 } from './settings.js'
-import { getProviderMeta } from './providers/index.js'
+import { providerMeta } from '../shared/providers.js'
 import {
   getPermissions,
   requestAccessibility,
@@ -24,7 +24,7 @@ import { checkKey, getStatus, setError } from './status.js'
 
 export function registerIpc(): void {
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:providers', () => getProviderMeta())
+  ipcMain.handle('settings:providers', () => providerMeta())
   ipcMain.handle('settings:keys', () => getAllKeyStatus())
 
   ipcMain.handle('settings:patch', (_e, patch: Partial<Settings>) => {

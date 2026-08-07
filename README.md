@@ -132,7 +132,7 @@ src/main/            proces glowny
   paste.ts           clipboard.writeText + osascript Cmd+V, rozpoznanie odmowy TCC
   permissions.ts     mikrofon, Accessibility, Automatyzacja
   status.ts          stan klucza API i ostatni blad; push przez listenera z index.ts
-  providers/         xai.ts, openai.ts, elevenlabs.ts
+  providers/         same implementacje transkrypcji: xai.ts, openai.ts, elevenlabs.ts
 src/preload/         contextBridge — renderer nie widzi kluczy API, tylko maske
 src/renderer/
   src/settings/      okno ustawien (React)
@@ -141,9 +141,17 @@ src/renderer/
   public/pcm-worklet.js   AudioWorklet, poza bundlem Vite
 src/shared/
   types.ts           typy wspolne dla main, preload i renderera
+  providers.ts       katalog dostawcow — zrodlo `ProviderId` i wszystkich map per dostawca
+  languages.ts       katalog jezykow — zrodlo `LanguageId` i jezyka podawanego dostawcy
   wav.ts             enkoder WAV — jeden dla recordera i procesu glownego
   failure.ts         fakty o awarii → komunikat, detal i przycisk naprawy
 ```
+
+Dodanie dostawcy STT to wpis w `src/shared/providers.ts` (nazwa, modele, podpowiedz klucza,
+adres po klucz) i modul z `transcribe` w `src/main/providers/`. Lista w ustawieniach,
+domyslny model, mapa stanu kluczy i lampka zdrowia klucza powstaja z katalogu same.
+Tak samo jezyk: jeden wpis w `src/shared/languages.ts`. Wpis z `spoken: false` (dzis
+**Auto**) nie idzie do dostawcy — dostawca ma rozpoznac jezyk sam.
 
 Audio: `AudioContext({ sampleRate: 16000 })` resampluje zrodlo, AudioWorklet zbiera PCM
 float32, enkoder tworzy WAV mono PCM16 (~32 kB/s). Wszyscy trzej dostawcy przyjmuja ten

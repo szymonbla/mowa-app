@@ -2,6 +2,7 @@ import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import type { KeyStatus, ProviderId, Settings } from '../shared/types.js'
+import { byProvider, DEFAULT_MODELS } from '../shared/providers.js'
 
 interface StoreFile extends Settings {
   /** Zaszyfrowane safeStorage, zapisane jako base64. */
@@ -11,12 +12,7 @@ interface StoreFile extends Settings {
 const DEFAULTS: Settings = {
   shortcut: 'Alt+Space',
   provider: 'xai',
-  models: {
-    // xAI /v1/stt nie przyjmuje pola `model` — stad pusty string.
-    xai: '',
-    openai: 'gpt-transcribe',
-    elevenlabs: 'scribe_v2'
-  },
+  models: { ...DEFAULT_MODELS },
   language: 'pl',
   launchAtLogin: false
 }
@@ -96,9 +92,5 @@ export function getKeyStatus(provider: ProviderId): KeyStatus {
 }
 
 export function getAllKeyStatus(): Record<ProviderId, KeyStatus> {
-  return {
-    xai: getKeyStatus('xai'),
-    openai: getKeyStatus('openai'),
-    elevenlabs: getKeyStatus('elevenlabs')
-  }
+  return byProvider((p) => getKeyStatus(p.id))
 }
