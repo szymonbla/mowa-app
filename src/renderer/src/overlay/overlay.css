@@ -67,13 +67,7 @@ body,
   height: 20px;
   overflow: hidden;
   /* Slupki gasna na krawedziach — sciezka wydaje sie ciagnac dalej, poza pigulke. */
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 15%,
-    #000 85%,
-    transparent 100%
-  );
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 15%, #000 85%, transparent 100%);
 }
 
 .strip {

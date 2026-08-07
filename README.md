@@ -63,11 +63,11 @@ tccutil reset AppleEvents com.szymon.mowa
 
 ## Uzycie
 
-| Akcja | Klawisze |
-|---|---|
-| Start nagrywania | skrot (domyslnie `⌥␣`) |
-| Koniec + wklejenie | ten sam skrot |
-| Anulowanie | `Esc` w trakcie nagrywania |
+| Akcja              | Klawisze                   |
+| ------------------ | -------------------------- |
+| Start nagrywania   | skrot (domyslnie `⌥␣`)     |
+| Koniec + wklejenie | ten sam skrot              |
+| Anulowanie         | `Esc` w trakcie nagrywania |
 
 Pigulka nad dolna krawedzia ekranu pokazuje stan: fala przy nagrywaniu, pulsowanie przy
 transkrypcji, zolty blysk po wklejeniu, czerwony komunikat przy bledzie.

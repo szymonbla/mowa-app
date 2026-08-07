@@ -45,9 +45,7 @@ export function toAccelerator(e: KeyboardEvent): string | null {
 
 /** Rozbija akcelerator na etykiety klawiszy — jedna na kazdy klawisz. */
 export function keycaps(accelerator: string): string[] {
-  return accelerator
-    .split('+')
-    .map((part) => MODIFIER_LABELS[part] ?? KEY_LABELS[part] ?? part)
+  return accelerator.split('+').map((part) => MODIFIER_LABELS[part] ?? KEY_LABELS[part] ?? part)
 }
 
 export function pretty(accelerator: string): string {

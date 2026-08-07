@@ -7,10 +7,8 @@ const execFileAsync = promisify(execFile)
 
 const ACCESSIBILITY_PANE =
   'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
-const MICROPHONE_PANE =
-  'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
-const AUTOMATION_PANE =
-  'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'
+const MICROPHONE_PANE = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+const AUTOMATION_PANE = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'
 
 /**
  * Sonda musi pytac o prawdziwa wlasciwosc celu. AppleScript odpowiada sam na

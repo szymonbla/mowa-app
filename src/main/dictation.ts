@@ -35,8 +35,7 @@ function noticeFor(correction: Correction): string | null {
 
 /** Co odsyla okno recordera: nagranie albo powod, dla ktorego go nie ma. */
 export type Recording =
-  | { ok: true; wav: Buffer; durationMs: number }
-  | { ok: false; failure: RecorderFailure }
+  { ok: true; wav: Buffer; durationMs: number } | { ok: false; failure: RecorderFailure }
 
 export interface DictationSettings {
   provider: ProviderId

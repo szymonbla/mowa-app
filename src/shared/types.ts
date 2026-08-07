@@ -34,12 +34,7 @@ export interface KeyStatus {
  * bo tam uzytkownik nie ma tekstu, a tu ma.
  */
 export type OverlayState =
-  | 'recording'
-  | 'transcribing'
-  | 'correcting'
-  | 'done'
-  | 'warning'
-  | 'error'
+  'recording' | 'transcribing' | 'correcting' | 'done' | 'warning' | 'error'
 
 export interface OverlayPayload {
   state: OverlayState

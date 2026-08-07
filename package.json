@@ -13,6 +13,8 @@
     "build": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "build:mac": "npm run build && electron-builder --mac --arm64"
   },
   "devDependencies": {
@@ -23,6 +25,7 @@
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "prettier": "^3.9.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "typescript": "^5.9.3",

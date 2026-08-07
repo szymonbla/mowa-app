@@ -127,12 +127,10 @@ export interface Message {
 export function messages(text: string, dictionary: readonly string[] = []): Message[] {
   return [
     { role: 'system', content: systemPrompt(dictionary) },
-    ...EXAMPLES.flatMap(
-      (example): Message[] => [
-        { role: 'user', content: userPrompt(example.input) },
-        { role: 'assistant', content: example.output }
-      ]
-    ),
+    ...EXAMPLES.flatMap((example): Message[] => [
+      { role: 'user', content: userPrompt(example.input) },
+      { role: 'assistant', content: example.output }
+    ]),
     { role: 'user', content: userPrompt(text) }
   ]
 }

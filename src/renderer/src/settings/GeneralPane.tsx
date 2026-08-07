@@ -70,8 +70,8 @@ export function GeneralPane({
           <div className="row-main">
             <div className="row-title">Poprawiaj podyktowany tekst</div>
             <div className="row-desc">
-              Interpunkcja, gramatyka i literowki. Slowa i szyk zostaja Twoje. Nazw
-              przekreconych przez rozpoznawanie mowy nie prostuje.
+              Interpunkcja, gramatyka i literowki. Slowa i szyk zostaja Twoje. Nazw przekreconych
+              przez rozpoznawanie mowy nie prostuje.
             </div>
           </div>
           <div className="row-tail">
@@ -99,9 +99,9 @@ export function GeneralPane({
           <div className="row-main">
             <div className="row-title">Zapisuj transkrypty na dysku</div>
             <div className="row-desc">
-              Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — po to, zeby
-              dalo sie sprawdzic, czy korekta pomaga. Plik nie idzie do kopii zapasowej.
-              Nic go nie kasuje samo.
+              Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — po to, zeby dalo
+              sie sprawdzic, czy korekta pomaga. Plik nie idzie do kopii zapasowej. Nic go nie
+              kasuje samo.
             </div>
           </div>
           <div className="row-tail">
@@ -121,8 +121,7 @@ export function GeneralPane({
           <div className="row-main">
             <div className="row-title">Plik z transkryptami</div>
             <div className="row-desc">
-              Zawiera wszystko, co podyktowales. Przegladaj go w edytorze — okna historii
-              tu nie ma.
+              Zawiera wszystko, co podyktowales. Przegladaj go w edytorze — okna historii tu nie ma.
             </div>
           </div>
           <div className="row-tail">

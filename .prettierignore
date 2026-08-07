@@ -1,0 +1,14 @@
+# Wyniki budowania i pliki generowane.
+out
+dist
+build
+*.tsbuildinfo
+package-lock.json
+
+# Notatki robocze — poza gitem, czesto z prawdziwymi transkryptami.
+.scratch
+
+# Skille wersjonowane przez setup-matt-pocock-skills. Formatowanie ich
+# tylko rozjechaloby diff przy kazdej aktualizacji.
+.claude
+skills-lock.json

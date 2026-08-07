@@ -26,8 +26,7 @@ export const MIN_COVERAGE = 0.85
 export const MIN_ORDER = 0.9
 
 /** Model lubi zaczac od zapowiedzi. To sie obcina, a nie odrzuca. */
-const PREAMBLE =
-  /^\s*(?:oto|poprawiona wersja|poprawiony tekst|here(?:'s| is))\b[^\n:]{0,60}:\s*/i
+const PREAMBLE = /^\s*(?:oto|poprawiona wersja|poprawiony tekst|here(?:'s| is))\b[^\n:]{0,60}:\s*/i
 const FENCE_OPEN = /^\s*```[\p{L}]*\s*\n?/u
 const FENCE_CLOSE = /\n?\s*```\s*$/
 

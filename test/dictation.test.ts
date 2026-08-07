@@ -63,8 +63,7 @@ function fake(): Fake {
     log: { open: [], close: [] },
     warmed: 0,
     transcribe: () => Promise.resolve('Dzien dobry'),
-    correct: (text) =>
-      Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT }),
+    correct: (text) => Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT }),
     lastTimer: () => f.timers[f.timers.length - 1]
   }
 

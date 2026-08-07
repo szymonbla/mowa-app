@@ -32,7 +32,10 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif;
+  font:
+    400 13px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow: hidden;
@@ -113,7 +116,9 @@ body {
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .nav-item + .nav-item,
@@ -523,7 +528,9 @@ button {
   border-radius: 7px;
   padding: 5px 11px;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 button:hover:not(:disabled) {
@@ -567,9 +574,12 @@ select {
   appearance: none;
   padding-right: 28px;
   /* Strzalka rysowana gradientem — bez plikow SVG. */
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
     linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
-  background-position: calc(100% - 15px) 13px, calc(100% - 10px) 13px;
+  background-position:
+    calc(100% - 15px) 13px,
+    calc(100% - 10px) 13px;
   background-size: 5px 5px;
   background-repeat: no-repeat;
 }
@@ -613,7 +623,9 @@ select:focus {
   border: 1px solid var(--border);
   background: var(--surface-2);
   padding: 0;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
 }
 
 .switch[data-on='true'] {
@@ -630,7 +642,9 @@ select:focus {
   height: 16px;
   border-radius: 50%;
   background: var(--text-dim);
-  transition: transform 140ms ease, background 140ms ease;
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
 }
 
 .switch[data-on='true']::after {

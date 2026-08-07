@@ -54,10 +54,7 @@ export interface ProviderMeta extends ProviderEntry {
 
 /** Jedyny sposob, w jaki w tym kodzie powstaje `Record<ProviderId, T>`. */
 export function byProvider<T>(make: (provider: ProviderMeta) => T): Record<ProviderId, T> {
-  return Object.fromEntries(PROVIDERS.map((p) => [p.id, make(p)] as const)) as Record<
-    ProviderId,
-    T
-  >
+  return Object.fromEntries(PROVIDERS.map((p) => [p.id, make(p)] as const)) as Record<ProviderId, T>
 }
 
 /** Lista dla okna ustawien. Kopia, bo katalog jest tylko do odczytu. */
@@ -66,9 +63,7 @@ export function providerMeta(): ProviderMeta[] {
 }
 
 /** Domyslny model to pierwszy z listy; dostawca bez modeli dostaje pusty string. */
-export const DEFAULT_MODELS: Record<ProviderId, string> = byProvider(
-  (p) => p.models[0]?.id ?? ''
-)
+export const DEFAULT_MODELS: Record<ProviderId, string> = byProvider((p) => p.models[0]?.id ?? '')
 
 export function providerLabel(id: ProviderId): string {
   return PROVIDERS.find((p) => p.id === id)?.label ?? id
