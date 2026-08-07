@@ -13,6 +13,8 @@ export interface Settings {
   models: Record<ProviderId, string>
   language: LanguageId
   launchAtLogin: boolean
+  /** Korekta podyktowanego tekstu przez LLM. Domyslnie wlaczona. */
+  cleanup: boolean
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */
@@ -21,7 +23,17 @@ export interface KeyStatus {
   masked: string
 }
 
-export type OverlayState = 'recording' | 'transcribing' | 'done' | 'error'
+/**
+ * 'warning' = cos poszlo nie tak, ale tekst i tak sie wkleil. Osobny stan od 'error',
+ * bo tam uzytkownik nie ma tekstu, a tu ma.
+ */
+export type OverlayState =
+  | 'recording'
+  | 'transcribing'
+  | 'correcting'
+  | 'done'
+  | 'warning'
+  | 'error'
 
 export interface OverlayPayload {
   state: OverlayState

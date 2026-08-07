@@ -93,8 +93,21 @@ body,
   background: #f2f0eb;
 }
 
+/*
+ * Korekta trwa medianowo ~0,3 s, a powyzej 150 slow nie startuje w ogole — to jest
+ * mrugniecie, nie pasek postepu. Stad ten sam oddech co przy transkrypcji, tylko
+ * szybszy: faza ma byc rozpoznawalna, gdy sie przeciagnie, i niezauwazalna, gdy nie.
+ */
 .pill.transcribing .track {
   animation: breathe 900ms ease-in-out infinite;
+}
+
+.pill.correcting .track {
+  animation: breathe 600ms ease-in-out infinite;
+}
+
+.pill.correcting .bar {
+  background: #e8c547;
 }
 
 @keyframes breathe {
@@ -115,7 +128,8 @@ body,
  * Komunikat bledu bywa zdaniem, nie slowem. Bez lamania wystawal poza okno
  * (220 px) i widac bylo jego srodek — pigulka rosnie w gore zamiast w bok.
  */
-.pill.error {
+.pill.error,
+.pill.warning {
   height: auto;
   min-height: 30px;
   max-width: 200px;
@@ -130,4 +144,9 @@ body,
   line-height: 1.35;
   text-align: center;
   color: #c4574a;
+}
+
+/* Ostrzezenie, nie awaria: tekst jest juz wklejony, tylko bez korekty. */
+.pill.warning .message {
+  color: #e8c547;
 }

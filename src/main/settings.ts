@@ -14,7 +14,8 @@ const DEFAULTS: Settings = {
   provider: 'xai',
   models: { ...DEFAULT_MODELS },
   language: 'pl',
-  launchAtLogin: false
+  launchAtLogin: false,
+  cleanup: true
 }
 
 let filePath = ''

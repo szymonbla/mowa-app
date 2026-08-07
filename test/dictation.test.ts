@@ -3,6 +3,7 @@ import { createDictation } from '../src/main/dictation.js'
 import type { Dictation, DictationHost } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
+import type { Correction } from '../src/main/cleanup/index.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
 
 interface Timer {
@@ -29,7 +30,10 @@ interface Fake {
   apiKey: string | null
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
+  cleanup: boolean
+  warmed: number
   transcribe: () => Promise<string>
+  correct: (text: string, speechMs: number) => Promise<Correction>
   /** Ostatnie zaplanowane odliczanie pigulki. */
   lastTimer(): Timer
 }
@@ -48,7 +52,10 @@ function fake(): Fake {
     apiKey: 'sk-test',
     micGranted: true,
     language: 'pl',
+    cleanup: false,
+    warmed: 0,
     transcribe: () => Promise.resolve('Dzien dobry'),
+    correct: (text) => Promise.resolve<Correction>({ kind: 'corrected', text }),
     lastTimer: () => f.timers[f.timers.length - 1]
   }
 
@@ -57,7 +64,8 @@ function fake(): Fake {
       provider: 'xai',
       providerLabel: 'xAI Grok',
       model: '',
-      language: f.language
+      language: f.language,
+      cleanup: f.cleanup
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
@@ -89,6 +97,10 @@ function fake(): Fake {
       f.health.push({ provider, health })
     },
     transcribe: () => f.transcribe(),
+    correct: (text, speechMs) => f.correct(text, speechMs),
+    warmCorrector: () => {
+      f.warmed++
+    },
     paste: (text) => {
       f.pasted.push(text)
       return Promise.resolve()
@@ -314,5 +326,107 @@ suite('czas zycia pigulki', () => {
 
     dictation.toggle()
     expect(f.timers).toEqual([])
+  })
+})
+
+suite('korekta w sciezce dyktowania', () => {
+  /** Nagrywa i konczy z wlaczona korekta. */
+  function withCleanup(f: Fake): Dictation {
+    f.cleanup = true
+    return recorded(f)
+  }
+
+  it('wkleja wersje poprawiona i pokazuje faze korekty', async () => {
+    const f = fake()
+    f.correct = (text) => Promise.resolve<Correction>({ kind: 'corrected', text: `${text}.` })
+
+    await withCleanup(f).submit(audio())
+
+    expect(f.overlay.map((o) => o.state)).toContain('correcting')
+    expect(f.pasted).toEqual(['Dzien dobry.'])
+    expect(lastOverlay(f)).toEqual({ state: 'done' })
+  })
+
+  it('rozgrzewa polaczenie przy wcisnieciu skrotu, nie po nagraniu', () => {
+    const f = fake()
+    f.cleanup = true
+
+    createDictation(f.host).toggle()
+
+    expect(f.warmed).toBe(1)
+  })
+
+  it('wylaczona korekta nie rusza tekstu ani nie rozgrzewa', async () => {
+    const f = fake()
+    f.correct = () => Promise.reject(new Error('nie wolno wolac'))
+
+    await recorded(f).submit(audio())
+
+    expect(f.warmed).toBe(0)
+    expect(f.pasted).toEqual(['Dzien dobry'])
+    expect(f.overlay.map((o) => o.state)).not.toContain('correcting')
+  })
+
+  it('awaria korekty wkleja tekst surowy i ostrzega', async () => {
+    const f = fake()
+    f.correct = () =>
+      Promise.resolve<Correction>({
+        kind: 'failed',
+        failure: { kind: 'cleanup', reason: 'budget' }
+      })
+
+    await withCleanup(f).submit(audio())
+
+    // Tekst nie ginie nigdy — to jest cala roznica miedzy ostrzezeniem a bledem.
+    expect(f.pasted).toEqual(['Dzien dobry'])
+    expect(lastOverlay(f).state).toBe('warning')
+    expect(f.lastTimer().ms).toBe(2000)
+  })
+
+  it('awaria korekty nie zapala czerwonego paska w ustawieniach', async () => {
+    const f = fake()
+    f.correct = () =>
+      Promise.resolve<Correction>({
+        kind: 'failed',
+        failure: { kind: 'cleanup', reason: 'provider', detail: 'HTTP 401' }
+      })
+
+    await withCleanup(f).submit(audio())
+
+    expect(f.errors[f.errors.length - 1]).toBeNull()
+    expect(f.health.every((h) => h.health.state === 'ok')).toBe(true)
+  })
+
+  it('pominiecie z powodu dlugosci mowi o tym wprost', async () => {
+    const f = fake()
+    f.correct = () => Promise.resolve<Correction>({ kind: 'skipped', reason: 'too-long' })
+
+    await withCleanup(f).submit(audio())
+
+    expect(f.pasted).toEqual(['Dzien dobry'])
+    expect(lastOverlay(f)).toEqual({ state: 'warning', message: 'Za dlugi tekst — bez korekty' })
+  })
+
+  it('brak czego poprawiac konczy sie zwyklym potwierdzeniem', async () => {
+    const f = fake()
+    f.correct = () => Promise.resolve<Correction>({ kind: 'skipped', reason: 'nothing' })
+
+    await withCleanup(f).submit(audio())
+
+    expect(lastOverlay(f)).toEqual({ state: 'done' })
+  })
+
+  it('Esc w trakcie korekty porzuca wynik i nie wkleja nic', async () => {
+    const f = fake()
+    const dictation = withCleanup(f)
+    f.correct = (text) =>
+      new Promise<Correction>((resolve) => {
+        dictation.cancel()
+        resolve({ kind: 'corrected', text })
+      })
+
+    await dictation.submit(audio())
+
+    expect(f.pasted).toEqual([])
   })
 })
