@@ -8,3 +8,6 @@ dist/
 # Vendorowane skille — odtwarzalne ze skills-lock.json, nie zasmiecaja diffow.
 .agents/skills/
 .claude/skills/
+
+# Notatki robocze — lokalne, poza repo.
+.scratch/
