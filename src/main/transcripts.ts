@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { appendFile, rm } from 'node:fs/promises'
+import { appendFile, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { Correction } from './cleanup/index.js'
@@ -155,4 +155,97 @@ export function initTranscripts(): void {
 /** „Wyczysc historie". Plik wraca sam przy nastepnym dyktowaniu, juz z `0600`. */
 export async function clearTranscripts(): Promise<void> {
   await rm(LOG_PATH, { force: true })
+}
+
+// --- Odczyt do panelu historii ---
+
+/**
+ * Jedno dyktowanie z logu: linia otwarcia i, jesli powstala, linia domkniecia.
+ * `close` jest `null`, gdy korekta jeszcze trwa albo proces padl w polowie.
+ */
+export interface Entry {
+  open: OpenLine
+  close: CloseLine | null
+}
+
+type Line = OpenLine | CloseLine
+
+/** Zepsuta linia (urwany zapis) daje `null`, nie wyjatek — jedna nie moze zaslonic reszty. */
+function parseLine(line: string): Line | null {
+  if (!line) return null
+  try {
+    const value: unknown = JSON.parse(line)
+    if (typeof value !== 'object' || value === null) return null
+    const record = value as Record<string, unknown>
+    if (typeof record.id !== 'string') return null
+    return record as unknown as Line
+  } catch {
+    return null
+  }
+}
+
+function isOpen(line: Line): line is OpenLine {
+  return 'raw' in line
+}
+
+/** Laczy linie po `id`, w kolejnosci pliku. Domkniecie bez otwarcia jest pomijane. */
+export function parseEntries(text: string): Entry[] {
+  const entries: Entry[] = []
+  const byId = new Map<string, Entry>()
+  for (const rawLine of text.split('\n')) {
+    const line = parseLine(rawLine)
+    if (!line) continue
+    if (isOpen(line)) {
+      const entry: Entry = { open: line, close: null }
+      byId.set(line.id, entry)
+      entries.push(entry)
+    } else {
+      const entry = byId.get(line.id)
+      if (entry) entry.close = line
+    }
+  }
+  return entries
+}
+
+/**
+ * Tekst logu bez obu linii wpisu. Linie, ktorych nie da sie sparsowac, zostaja —
+ * kasowanie jednego wpisu nie jest okazja do "naprawiania" pliku.
+ */
+export function withoutEntry(text: string, id: string): string {
+  return text
+    .split('\n')
+    .filter((rawLine, i, all) => {
+      // Ostatni pusty element to koncowy `\n`, nie linia.
+      if (i === all.length - 1 && rawLine === '') return false
+      return parseLine(rawLine)?.id !== id
+    })
+    .map((line) => `${line}\n`)
+    .join('')
+}
+
+/** Najnowsze `limit` wpisow, najnowszy pierwszy. Brak pliku to pusta historia, nie blad. */
+export async function readEntries(limit = 200, path = LOG_PATH): Promise<Entry[]> {
+  let text: string
+  try {
+    text = await readFile(path, 'utf8')
+  } catch {
+    return []
+  }
+  return parseEntries(text).slice(-limit).reverse()
+}
+
+/**
+ * Przepisuje plik bez wpisu: tmp + rename, zeby urwany zapis nie zostawil
+ * polowy historii. `mode` na tmp, bo to on staje sie nowym plikiem.
+ */
+export async function deleteEntry(id: string, path = LOG_PATH): Promise<void> {
+  let text: string
+  try {
+    text = await readFile(path, 'utf8')
+  } catch {
+    return
+  }
+  const tmp = `${path}.${randomUUID()}.tmp`
+  await writeFile(tmp, withoutEntry(text, id), { mode: 0o600 })
+  await rename(tmp, path)
 }
