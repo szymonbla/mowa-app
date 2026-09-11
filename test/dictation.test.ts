@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from 'vitest'
 import { createDictation } from '../src/main/dictation.js'
-import type { Dictation, DictationHost, RecordStart } from '../src/main/dictation.js'
+import type { Dictation, DictationHost } from '../src/main/dictation.js'
+import type { RecordStart } from '../src/shared/devices.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
 import type { Attempt, Correction } from '../src/main/cleanup/index.js'

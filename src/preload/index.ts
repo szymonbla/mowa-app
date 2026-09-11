@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { RecorderFailure } from '../shared/failure.js'
+import type { AudioDevice, RecordStart } from '../shared/devices.js'
 import type {
   AppStatus,
   AutomationStatus,
@@ -43,6 +44,9 @@ const api = {
   requestAutomation: (): Promise<AutomationStatus> =>
     ipcRenderer.invoke('permissions:requestAutomation'),
 
+  // --- Mikrofony. Liste zna tylko okno recordera; main posredniczy. ---
+  getInputDevices: (): Promise<AudioDevice[]> => ipcRenderer.invoke('devices:list'),
+
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open', url),
 
   // --- Log transkryptow. Renderer dostaje gotowe wpisy; plik i schowek zostaja w main. ---
@@ -64,8 +68,8 @@ const overlayApi = {
 }
 
 const recorderApi = {
-  onStart: (cb: () => void): void => {
-    ipcRenderer.on('record:start', () => cb())
+  onStart: (cb: (start: RecordStart) => void): void => {
+    ipcRenderer.on('record:start', (_e, start: RecordStart) => cb(start))
   },
   onStop: (cb: () => void): void => {
     ipcRenderer.on('record:stop', () => cb())
@@ -73,6 +77,11 @@ const recorderApi = {
   onCancel: (cb: () => void): void => {
     ipcRenderer.on('record:cancel', () => cb())
   },
+  // Pytanie o mikrofony przychodzi z main; odpowiedz wraca tym samym kanalem w druga strone.
+  onDevices: (cb: () => void): void => {
+    ipcRenderer.on('record:devices', () => cb())
+  },
+  sendDevices: (devices: AudioDevice[]): void => ipcRenderer.send('record:devices', devices),
   sendLevel: (level: number): void => ipcRenderer.send('record:level', level),
   sendError: (failure: RecorderFailure): void => ipcRenderer.send('record:error', failure),
   sendAudio: (wav: ArrayBuffer, durationMs: number): Promise<void> =>

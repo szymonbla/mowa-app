@@ -1,6 +1,8 @@
 import { clipboard, ipcMain, shell } from 'electron'
 import type { ProviderId, Settings, TestKeyResult } from '../shared/types.js'
 import type { RecorderFailure } from '../shared/failure.js'
+import type { AudioDevice } from '../shared/devices.js'
+import { createDeviceQuery } from './device-query.js'
 import { getAllKeyStatus, getKeyStatus, getSettings, patchSettings, setApiKey } from './settings.js'
 import { providerMeta } from '../shared/providers.js'
 import {
@@ -11,7 +13,7 @@ import {
 } from './permissions.js'
 import { registerShortcut } from './shortcut.js'
 import { dictation } from './dictation-host.js'
-import { sendOverlayLevel } from './windows.js'
+import { getRecorderWindow, sendOverlayLevel } from './windows.js'
 import { setLaunchAtLogin } from './autostart.js'
 import { refreshTrayMenu } from './tray.js'
 import { checkKey, getStatus, setError } from './status.js'
@@ -60,6 +62,12 @@ export function registerIpc(): void {
   ipcMain.handle('permissions:requestAx', () => requestAccessibility())
   ipcMain.handle('permissions:requestAutomation', () => requestAutomation())
   ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))
+
+  // Mikrofony zna tylko okno recordera (enumerateDevices). Okno ustawien pyta main,
+  // main pyta recorder; po 2 s bez odpowiedzi pane dostaje pusta liste zamiast wisiec.
+  const devices = createDeviceQuery(() => getRecorderWindow().webContents.send('record:devices'))
+  ipcMain.handle('devices:list', () => devices.list())
+  ipcMain.on('record:devices', (_e, list: AudioDevice[]) => devices.reply(list))
 
   // Panel historii. Renderer dostaje gotowe wpisy, nigdy sciezki ani surowego pliku.
   ipcMain.handle('transcripts:show', () => shell.showItemInFolder(LOG_PATH))

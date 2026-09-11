@@ -2,6 +2,7 @@ import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
 import { spokenLanguage } from '../shared/languages.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
+import type { RecordStart } from '../shared/devices.js'
 import type { TranscribeOptions } from './providers/index.js'
 import type { Correction, SkipReason } from './cleanup/index.js'
 
@@ -46,11 +47,6 @@ export interface DictationSettings {
   /** Przelacznik korekty z ustawien. */
   cleanup: boolean
   /** Mikrofon z ustawien; `''` = domyslne systemowe. Recorder sam nie zna ustawien. */
-  inputDevice: string
-}
-
-/** Ladunek rozkazu `start`. Recorder dostaje wszystko, czego potrzebuje, w jednym IPC. */
-export interface RecordStart {
   inputDevice: string
 }
 

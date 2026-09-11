@@ -1,4 +1,6 @@
 import { SAMPLE_RATE, encodeWav } from '../../../shared/wav.js'
+import { audioInputs, DEFAULT_DEVICE, pickDevice } from '../../../shared/devices.js'
+import type { AudioDevice, RecordStart } from '../../../shared/devices.js'
 
 interface Session {
   stream: MediaStream
@@ -23,7 +25,23 @@ const ready: Promise<AudioContext> = (async () => {
 /** Wyjscie musi byc podlaczone, inaczej graf nie jest przetwarzany. Gain 0 wycisza je. */
 let mute: GainNode | null = null
 
-async function start(): Promise<void> {
+/** Same wejscia audio. Etykiety sa puste, dopoki macOS nie da zgody na mikrofon. */
+async function listDevices(): Promise<AudioDevice[]> {
+  return audioInputs(await navigator.mediaDevices.enumerateDevices())
+}
+
+/**
+ * Ktory mikrofon otworzyc. Wybrane, ale odlaczone urzadzenie cofa sie do domyslnego —
+ * `exact` na nieobecnym id rzucilby OverconstrainedError i nagranie by nie ruszylo.
+ * Dla domyslnego nie pytamy o liste wcale: to jedna runda mniej przed startem.
+ */
+async function deviceConstraint(wanted: string): Promise<{ exact: string } | undefined> {
+  if (wanted === DEFAULT_DEVICE) return undefined
+  const picked = pickDevice(await listDevices(), wanted)
+  return picked === null ? undefined : { exact: picked }
+}
+
+async function start({ inputDevice }: RecordStart): Promise<void> {
   if (session) return
 
   try {
@@ -33,6 +51,7 @@ async function start(): Promise<void> {
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        deviceId: await deviceConstraint(inputDevice),
         channelCount: 1,
         echoCancellation: false,
         noiseSuppression: true,
@@ -95,7 +114,11 @@ async function stop(): Promise<void> {
   await window.recorder.sendAudio(wav, durationMs)
 }
 
-window.recorder.onStart(() => void start())
+window.recorder.onStart((payload) => void start(payload))
+// Odpowiadamy zawsze, tez pusta lista: main i tak by ja przyjal po 2 s, ale po co czekac.
+window.recorder.onDevices(
+  () => void listDevices().then(window.recorder.sendDevices, () => window.recorder.sendDevices([]))
+)
 window.recorder.onStop(() => void stop())
 window.recorder.onCancel(() => {
   teardown()
