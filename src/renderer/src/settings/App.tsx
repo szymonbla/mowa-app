@@ -11,6 +11,7 @@ import type {
 import { Banner } from './Banner.js'
 import type { Problem } from './Banner.js'
 import { GeneralPane } from './GeneralPane.js'
+import { HistoryPane } from './HistoryPane.js'
 import { HomePane } from './HomePane.js'
 import { Glyph } from './Icon.js'
 import { ModelPane } from './ModelPane.js'
@@ -178,6 +179,13 @@ export function App(): React.JSX.Element | null {
                 if (active) patch({ models: { ...settings.models, [active.id]: id } })
               }}
               onKeySaved={(id, status) => setKeys({ ...keys, [id]: status })}
+            />
+          )}
+
+          {view === 'history' && (
+            <HistoryPane
+              enabled={settings.transcripts}
+              onEnable={() => patch({ transcripts: true })}
             />
           )}
 

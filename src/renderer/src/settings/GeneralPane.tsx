@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
 import { LANGUAGES } from '../../../shared/languages.js'
 import { Glyph } from './Icon.js'
@@ -28,9 +27,6 @@ export function GeneralPane({
   onRequestAutomation
 }: Props): React.JSX.Element {
   const language = LANGUAGES.find((l) => l.id === settings.language)
-  // Kasowanie jest nieodwracalne, a plik zbiera sie miesiacami. Potwierdzenie robi sam
-  // przycisk — okno dialogowe zablokowaloby renderera dla jednego klikniecia.
-  const [confirming, setConfirming] = useState(false)
 
   return (
     <>
@@ -91,7 +87,8 @@ export function GeneralPane({
 
       {/*
         Przelacznik **osobny** od korekty. Sklejenie ich odbieraloby wybor: to dwie
-        rozne decyzje i inaczej wazy je prywatnosc.
+        rozne decyzje i inaczej wazy je prywatnosc. Przegladanie i kasowanie wpisow
+        jest w zakladce Historia — tu zostaje tylko decyzja, czy zapisywac.
       */}
       <div className="card">
         <div className="row">
@@ -101,7 +98,7 @@ export function GeneralPane({
             <div className="row-desc">
               Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — po to, zeby dalo
               sie sprawdzic, czy korekta pomaga. Plik nie idzie do kopii zapasowej. Nic go nie
-              kasuje samo.
+              kasuje samo. Przegladasz i kasujesz wpisy w zakladce Historia.
             </div>
           </div>
           <div className="row-tail">
@@ -113,32 +110,6 @@ export function GeneralPane({
               aria-label="Zapisuj transkrypty na dysku"
               onClick={() => onPatch({ transcripts: !settings.transcripts })}
             />
-          </div>
-        </div>
-
-        <div className="row">
-          <Glyph name="lock" />
-          <div className="row-main">
-            <div className="row-title">Plik z transkryptami</div>
-            <div className="row-desc">
-              Zawiera wszystko, co podyktowales. Przegladaj go w edytorze — okna historii tu nie ma.
-            </div>
-          </div>
-          <div className="row-tail">
-            <button onClick={() => void window.api.showTranscripts()}>Pokaz</button>
-            {confirming ? (
-              <button
-                className="primary"
-                onClick={() => {
-                  void window.api.clearTranscripts()
-                  setConfirming(false)
-                }}
-              >
-                Na pewno?
-              </button>
-            ) : (
-              <button onClick={() => setConfirming(true)}>Wyczysc</button>
-            )}
           </div>
         </div>
       </div>
