@@ -30,19 +30,20 @@ const log = createTranscriptLog({
 /** Adapter na Electron. Drugi adapter tej samej krawedzi — pamieciowy — zyje w testach. */
 const host: DictationHost = {
   settings() {
-    const { provider, language, cleanup } = getSettings()
+    const { provider, language, cleanup, inputDevice } = getSettings()
     return {
       provider,
       providerLabel: providerLabel(provider),
       model: getModel(provider),
       language,
-      cleanup
+      cleanup,
+      inputDevice
     }
   },
   apiKey: getApiKey,
   microphoneGranted: () => getPermissions().microphone === 'granted',
   requestMicrophone: () => void requestMicrophone(),
-  record: (command) => getRecorderWindow().webContents.send(`record:${command}`),
+  record: (command, start) => getRecorderWindow().webContents.send(`record:${command}`, start),
   bindCancelKey,
   unbindCancelKey,
   showOverlay,

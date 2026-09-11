@@ -21,6 +21,12 @@ export interface Settings {
    * jednoosobowa; dystrybucja do innych osob otwiera te decyzje z powrotem.
    */
   transcripts: boolean
+  /**
+   * `deviceId` mikrofonu z `enumerateDevices()`. `''` = domyslne systemowe.
+   * Odlaczone urzadzenie nie kasuje wyboru: nagranie idzie na domyslne, a wybor
+   * wraca do glosu, gdy mikrofon znow sie pojawi.
+   */
+  inputDevice: string
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */

@@ -1,6 +1,6 @@
 import { describe as suite, expect, it } from 'vitest'
 import { createDictation } from '../src/main/dictation.js'
-import type { Dictation, DictationHost } from '../src/main/dictation.js'
+import type { Dictation, DictationHost, RecordStart } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
 import type { Attempt, Correction } from '../src/main/cleanup/index.js'
@@ -33,6 +33,10 @@ interface Fake {
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
   cleanup: boolean
+  /** Mikrofon z ustawien; `''` = domyslne systemowe. */
+  inputDevice: string
+  /** Ladunki rozkazu `start`, w kolejnosci. */
+  starts: RecordStart[]
   /** Przelacznik logu — osobny od korekty, tak samo jak w ustawieniach. */
   transcripts: boolean
   /** Co trafilo do logu transkryptow: zapis 1 i zapis 2, w kolejnosci. */
@@ -59,7 +63,9 @@ function fake(): Fake {
     micGranted: true,
     language: 'pl',
     cleanup: false,
+    inputDevice: '',
     transcripts: true,
+    starts: [],
     log: { open: [], close: [] },
     warmed: 0,
     transcribe: () => Promise.resolve('Dzien dobry'),
@@ -73,15 +79,17 @@ function fake(): Fake {
       providerLabel: 'xAI Grok',
       model: '',
       language: f.language,
-      cleanup: f.cleanup
+      cleanup: f.cleanup,
+      inputDevice: f.inputDevice
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
     requestMicrophone: () => {
       f.micRequests++
     },
-    record: (command) => {
+    record: (command, start) => {
       f.commands.push(command)
+      if (start) f.starts.push(start)
     },
     bindCancelKey: (onCancel) => {
       f.cancelKey = onCancel
@@ -164,6 +172,15 @@ suite('dyktowanie', () => {
     expect(f.commands).toEqual(['start', 'stop'])
     expect(lastOverlay(f)).toEqual({ state: 'transcribing' })
     expect(f.cancelKey).toBeNull()
+  })
+
+  it('rozkaz start niesie mikrofon z ustawien, bo recorder sam ich nie zna', () => {
+    const f = fake()
+    f.inputDevice = 'usb-1'
+    const dictation = createDictation(f.host)
+
+    dictation.toggle()
+    expect(f.starts).toEqual([{ inputDevice: 'usb-1' }])
   })
 
   it('trzeci skrot w trakcie transkrypcji nic nie robi', () => {

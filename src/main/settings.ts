@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import type { KeyStatus, ProviderId, Settings } from '../shared/types.js'
 import { byProvider, DEFAULT_MODELS } from '../shared/providers.js'
+import { DEFAULT_DEVICE } from '../shared/devices.js'
 
 interface StoreFile extends Settings {
   /** Zaszyfrowane safeStorage, zapisane jako base64. */
@@ -16,7 +17,8 @@ const DEFAULTS: Settings = {
   language: 'pl',
   launchAtLogin: false,
   cleanup: true,
-  transcripts: true
+  transcripts: true,
+  inputDevice: DEFAULT_DEVICE
 }
 
 let filePath = ''

@@ -45,6 +45,13 @@ export interface DictationSettings {
   language: LanguageId
   /** Przelacznik korekty z ustawien. */
   cleanup: boolean
+  /** Mikrofon z ustawien; `''` = domyslne systemowe. Recorder sam nie zna ustawien. */
+  inputDevice: string
+}
+
+/** Ladunek rozkazu `start`. Recorder dostaje wszystko, czego potrzebuje, w jednym IPC. */
+export interface RecordStart {
+  inputDevice: string
 }
 
 /**
@@ -58,8 +65,8 @@ export interface DictationHost {
   microphoneGranted(): boolean
   /** Monit systemowy. Idzie w tle — pigulka mowi od razu, czego brakuje. */
   requestMicrophone(): void
-  /** Rozkaz dla okna recordera. */
-  record(command: 'start' | 'stop' | 'cancel'): void
+  /** Rozkaz dla okna recordera. `start` niesie ladunek, pozostale ida bez. */
+  record(command: 'start' | 'stop' | 'cancel', start?: RecordStart): void
   bindCancelKey(onCancel: () => void): void
   unbindCancelKey(): void
   showOverlay(payload: OverlayPayload): void
@@ -130,7 +137,7 @@ export function createDictation(host: DictationHost): Dictation {
    * opoznialoby pojawienie sie pigulki, a to jedyne potwierdzenie, ze skrot zadzialal.
    */
   function start(): void {
-    const { provider, providerLabel, cleanup } = host.settings()
+    const { provider, providerLabel, cleanup, inputDevice } = host.settings()
 
     if (!host.apiKey(provider)) {
       fail({ kind: 'no-key', provider: providerLabel })
@@ -146,7 +153,7 @@ export function createDictation(host: DictationHost): Dictation {
     phase = 'recording'
     host.showOverlay({ state: 'recording' })
     host.bindCancelKey(cancel)
-    host.record('start')
+    host.record('start', { inputDevice })
     // Uzgodnienie TCP i TLS biegnie rownolegle z mowieniem, wiec nie kosztuje czasu.
     if (cleanup) host.warmCorrector()
   }
