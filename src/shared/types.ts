@@ -58,6 +58,40 @@ export interface TestKeyResult {
   error?: string
 }
 
+/**
+ * Co sie stalo z korekta. Prefiks `skip:` kontra `fail:` jest tresciowy, nie
+ * kosmetyczny: przy pominieciu nikt nie czekal ani chwili, przy awarii uzytkownik
+ * czekal na darmo. Osobne `off` odroznia wylaczona korekte od nieudanej — bez tego
+ * wpis z pustym `clean` znaczylby dwie rozne rzeczy naraz.
+ */
+export type Outcome =
+  | 'corrected'
+  | 'off'
+  | 'skip:too-long'
+  | 'skip:no-corrector'
+  | 'skip:nothing'
+  | 'fail:budget'
+  | 'fail:guard'
+  | 'fail:provider'
+  | 'fail:network'
+
+/**
+ * Jedno dyktowanie z logu, w ksztalcie dla panelu historii. `outcome` jest `null`,
+ * gdy wpis nie ma domkniecia — korekta jeszcze trwa albo proces padl w polowie.
+ */
+export interface TranscriptEntry {
+  id: string
+  /** ISO 8601. */
+  t: string
+  lang: LanguageId
+  words: number
+  speechMs: number
+  raw: string
+  /** Pusty, gdy poprawiona wersja nie powstala. */
+  clean: string
+  outcome: Outcome | null
+}
+
 /** Do czego prowadzi przycisk naprawy przy komunikacie bledu. */
 export type ErrorFix = 'accessibility' | 'automation' | 'microphone' | 'key' | 'network'
 

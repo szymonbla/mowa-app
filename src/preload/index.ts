@@ -9,7 +9,8 @@ import type {
   ProviderId,
   ProviderMeta,
   Settings,
-  TestKeyResult
+  TestKeyResult,
+  TranscriptEntry
 } from '../shared/types.js'
 
 const api = {
@@ -44,9 +45,13 @@ const api = {
 
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open', url),
 
-  // --- Log transkryptow. Renderer nie czyta pliku, tylko go pokazuje albo kasuje. ---
+  // --- Log transkryptow. Renderer dostaje gotowe wpisy; plik i schowek zostaja w main. ---
   showTranscripts: (): Promise<void> => ipcRenderer.invoke('transcripts:show'),
-  clearTranscripts: (): Promise<void> => ipcRenderer.invoke('transcripts:clear')
+  clearTranscripts: (): Promise<void> => ipcRenderer.invoke('transcripts:clear'),
+  listTranscripts: (limit?: number): Promise<TranscriptEntry[]> =>
+    ipcRenderer.invoke('transcripts:list', limit),
+  deleteTranscript: (id: string): Promise<void> => ipcRenderer.invoke('transcripts:delete', id),
+  copyText: (text: string): Promise<void> => ipcRenderer.invoke('transcripts:copy', text)
 }
 
 const overlayApi = {

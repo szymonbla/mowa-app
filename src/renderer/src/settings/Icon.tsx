@@ -15,6 +15,8 @@ export type IconName =
   | 'check'
   | 'record'
   | 'text'
+  | 'clock'
+  | 'search'
 
 const PATHS: Record<IconName, React.JSX.Element> = {
   home: <path d="M2.5 7 8 2.5 13.5 7v6.5h-11z" />,
@@ -63,7 +65,19 @@ const PATHS: Record<IconName, React.JSX.Element> = {
       <circle cx="8" cy="8" r="2.3" fill="currentColor" stroke="none" />
     </>
   ),
-  text: <path d="M3 4h10M3 8h7M3 12h9" />
+  text: <path d="M3 4h10M3 8h7M3 12h9" />,
+  clock: (
+    <>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5V8l2.4 1.6" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4.2" />
+      <path d="M10.2 10.2 13.5 13.5" />
+    </>
+  )
 }
 
 export function Icon({ name }: { name: IconName }): React.JSX.Element {

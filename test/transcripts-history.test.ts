@@ -16,29 +16,30 @@ const CLOSE_2 = '{"id":"b","clean":"","outcome":"skip:nothing","cleanupMs":0}'
 suite('parseEntries — laczenie linii w wpisy', () => {
   it('laczy linie otwarcia i domkniecia po id, w kolejnosci pliku', () => {
     const entries = parseEntries(`${OPEN_1}\n${CLOSE_1}\n${OPEN_2}\n${CLOSE_2}\n`)
-    expect(entries.map((e) => e.open.id)).toEqual(['a', 'b'])
-    expect(entries[0].open.raw).toBe('dzien dobry')
-    expect(entries[0].close?.clean).toBe('Dzień dobry.')
-    expect(entries[1].close?.outcome).toBe('skip:nothing')
+    expect(entries.map((e) => e.id)).toEqual(['a', 'b'])
+    expect(entries[0].raw).toBe('dzien dobry')
+    expect(entries[0].clean).toBe('Dzień dobry.')
+    expect(entries[1].outcome).toBe('skip:nothing')
   })
 
   it('zostawia wpis bez domkniecia, gdy korekta jeszcze trwa albo proces padl', () => {
     const entries = parseEntries(`${OPEN_1}\n${CLOSE_1}\n${OPEN_2}\n`)
     expect(entries).toHaveLength(2)
-    expect(entries[1].open.id).toBe('b')
-    expect(entries[1].close).toBeNull()
+    expect(entries[1].id).toBe('b')
+    expect(entries[1].outcome).toBeNull()
+    expect(entries[1].clean).toBe('')
   })
 
   it('pomija zepsuta linie w srodku, nie gubiac reszty', () => {
     // Urwany zapis (np. brak miejsca na dysku) nie moze zaslonic calej historii.
     const entries = parseEntries(`${OPEN_1}\n{"id":"x","t":"2026\n${CLOSE_1}\n${OPEN_2}\n`)
-    expect(entries.map((e) => e.open.id)).toEqual(['a', 'b'])
-    expect(entries[0].close?.clean).toBe('Dzień dobry.')
+    expect(entries.map((e) => e.id)).toEqual(['a', 'b'])
+    expect(entries[0].clean).toBe('Dzień dobry.')
   })
 
   it('ignoruje domkniecie bez otwarcia i puste linie', () => {
     const entries = parseEntries(`\n${CLOSE_2}\n\n${OPEN_1}\n`)
-    expect(entries.map((e) => e.open.id)).toEqual(['a'])
+    expect(entries.map((e) => e.id)).toEqual(['a'])
   })
 })
 
@@ -70,9 +71,9 @@ suite('readEntries / deleteEntry — na prawdziwym pliku', () => {
   it('readEntries zwraca najnowsze najpierw i tnie do limitu', async () => {
     const path = await tempLog(`${OPEN_1}\n${CLOSE_1}\n${OPEN_2}\n${CLOSE_2}\n`)
     const all = await readEntries(200, path)
-    expect(all.map((e) => e.open.id)).toEqual(['b', 'a'])
+    expect(all.map((e) => e.id)).toEqual(['b', 'a'])
     const one = await readEntries(1, path)
-    expect(one.map((e) => e.open.id)).toEqual(['b'])
+    expect(one.map((e) => e.id)).toEqual(['b'])
   })
 
   it('readEntries zwraca pusta liste, gdy pliku nie ma', async () => {
@@ -85,7 +86,7 @@ suite('readEntries / deleteEntry — na prawdziwym pliku', () => {
     await deleteEntry('a', path)
     expect(await readFile(path, 'utf8')).toBe(`${OPEN_2}\n${CLOSE_2}\n`)
     expect((await stat(path)).mode & 0o777).toBe(0o600)
-    expect((await readEntries(200, path)).map((e) => e.open.id)).toEqual(['b'])
+    expect((await readEntries(200, path)).map((e) => e.id)).toEqual(['b'])
   })
 
   it('deleteEntry nie tworzy pliku, gdy go nie ma', async () => {

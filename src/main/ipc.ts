@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { clipboard, ipcMain, shell } from 'electron'
 import type { ProviderId, Settings, TestKeyResult } from '../shared/types.js'
 import type { RecorderFailure } from '../shared/failure.js'
 import { getAllKeyStatus, getKeyStatus, getSettings, patchSettings, setApiKey } from './settings.js'
@@ -15,7 +15,7 @@ import { sendOverlayLevel } from './windows.js'
 import { setLaunchAtLogin } from './autostart.js'
 import { refreshTrayMenu } from './tray.js'
 import { checkKey, getStatus, setError } from './status.js'
-import { clearTranscripts, LOG_PATH } from './transcripts.js'
+import { clearTranscripts, deleteEntry, LOG_PATH, readEntries } from './transcripts.js'
 
 export function registerIpc(): void {
   ipcMain.handle('settings:get', () => getSettings())
@@ -61,10 +61,13 @@ export function registerIpc(): void {
   ipcMain.handle('permissions:requestAutomation', () => requestAutomation())
   ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))
 
-  // Zamiast przegladarki historii — dwa przyciski. Lista ostatnich transkryptow
-  // w ustawieniach to juz przegladarka, tylko ubozsza, a ta jest poza zakresem.
+  // Panel historii. Renderer dostaje gotowe wpisy, nigdy sciezki ani surowego pliku.
   ipcMain.handle('transcripts:show', () => shell.showItemInFolder(LOG_PATH))
   ipcMain.handle('transcripts:clear', () => clearTranscripts())
+  ipcMain.handle('transcripts:list', (_e, limit?: number) => readEntries(limit))
+  ipcMain.handle('transcripts:delete', (_e, id: string) => deleteEntry(id))
+  // Schowek zostaje w main — renderer nie ma i nie potrzebuje do niego dostepu.
+  ipcMain.handle('transcripts:copy', (_e, text: string) => clipboard.writeText(text))
 
   // Kanaly recordera (ukryte okno → main).
   ipcMain.on('record:level', (_e, level: number) => sendOverlayLevel(level))

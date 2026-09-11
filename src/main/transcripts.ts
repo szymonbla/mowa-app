@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { Correction } from './cleanup/index.js'
 import type { GuardLayer } from './cleanup/guard.js'
 import { wordCount } from './cleanup/text.js'
-import type { LanguageId, ProviderId } from '../shared/types.js'
+import type { LanguageId, Outcome, ProviderId, TranscriptEntry } from '../shared/types.js'
 
 /**
  * Log transkryptow. Istnieje **wylacznie** po to, zeby powstal zestaw oceny korekty —
@@ -27,22 +27,7 @@ import type { LanguageId, ProviderId } from '../shared/types.js'
 export const LOG_DIR = join(homedir(), '.mowa')
 export const LOG_PATH = join(LOG_DIR, 'transkrypty.jsonl')
 
-/**
- * Co sie stalo z korekta. Prefiks `skip:` kontra `fail:` jest tresciowy, nie
- * kosmetyczny: przy pominieciu nikt nie czekal ani chwili, przy awarii uzytkownik
- * czekal na darmo. Osobne `off` odroznia wylaczona korekte od nieudanej — bez tego
- * wpis z pustym `clean` znaczylby dwie rozne rzeczy naraz.
- */
-export type Outcome =
-  | 'corrected'
-  | 'off'
-  | 'skip:too-long'
-  | 'skip:no-corrector'
-  | 'skip:nothing'
-  | 'fail:budget'
-  | 'fail:guard'
-  | 'fail:provider'
-  | 'fail:network'
+export type { Outcome }
 
 /** Zapis 1 — surowy tekst, natychmiast po odpowiedzi STT. */
 export interface OpenLine {
@@ -159,14 +144,8 @@ export async function clearTranscripts(): Promise<void> {
 
 // --- Odczyt do panelu historii ---
 
-/**
- * Jedno dyktowanie z logu: linia otwarcia i, jesli powstala, linia domkniecia.
- * `close` jest `null`, gdy korekta jeszcze trwa albo proces padl w polowie.
- */
-export interface Entry {
-  open: OpenLine
-  close: CloseLine | null
-}
+/** Ksztalt dla renderera lezy w `shared/types.ts`; tu tylko alias. */
+export type Entry = TranscriptEntry
 
 type Line = OpenLine | CloseLine
 
@@ -196,12 +175,16 @@ export function parseEntries(text: string): Entry[] {
     const line = parseLine(rawLine)
     if (!line) continue
     if (isOpen(line)) {
-      const entry: Entry = { open: line, close: null }
-      byId.set(line.id, entry)
+      const { id, t, lang, words, speechMs, raw } = line
+      const entry: Entry = { id, t, lang, words, speechMs, raw, clean: '', outcome: null }
+      byId.set(id, entry)
       entries.push(entry)
     } else {
       const entry = byId.get(line.id)
-      if (entry) entry.close = line
+      if (entry) {
+        entry.clean = line.clean
+        entry.outcome = line.outcome
+      }
     }
   }
   return entries
