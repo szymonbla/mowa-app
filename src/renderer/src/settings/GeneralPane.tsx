@@ -1,10 +1,14 @@
 import type { LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
 import { LANGUAGES } from '../../../shared/languages.js'
+import { DEFAULT_DEVICE } from '../../../shared/devices.js'
+import type { AudioDevice } from '../../../shared/devices.js'
 import { Glyph } from './Icon.js'
 
 interface Props {
   settings: Settings
   permissions: PermissionStatus
+  /** Wejscia audio z okna recordera. Pusta lista, gdy recorder milczy. */
+  devices: AudioDevice[]
   onPatch: (part: Partial<Settings>) => void
   onRequestMicrophone: () => void
   onRequestAccessibility: () => void
@@ -21,12 +25,16 @@ const AUTOMATION_DESC: Record<PermissionStatus['automation'], string> = {
 export function GeneralPane({
   settings,
   permissions,
+  devices,
   onPatch,
   onRequestMicrophone,
   onRequestAccessibility,
   onRequestAutomation
 }: Props): React.JSX.Element {
   const language = LANGUAGES.find((l) => l.id === settings.language)
+  const missing =
+    settings.inputDevice !== DEFAULT_DEVICE &&
+    !devices.some((d) => d.deviceId === settings.inputDevice)
 
   return (
     <>
@@ -120,6 +128,44 @@ export function GeneralPane({
               aria-label="Zapisuj transkrypty na dysku"
               onClick={() => onPatch({ transcripts: !settings.transcripts })}
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="group-title">Mikrofon</div>
+
+      {/*
+        Odlaczony mikrofon zostaje na liscie jako osobna opcja. Bez tego select pokazalby
+        pierwsza pozycje i uzytkownik myslalby, ze wybor przepadl — a nagranie i tak idzie
+        na domyslny, dopoki urzadzenie nie wroci.
+      */}
+      <div className="card">
+        <div className="row">
+          <Glyph name="mic" />
+          <div className="row-main">
+            <div className="row-title">Mikrofon</div>
+            <div className="row-desc">
+              {permissions.microphone !== 'granted'
+                ? 'Nazwy mikrofonow pojawia sie po nadaniu zgody ponizej.'
+                : missing
+                  ? 'Wybrany mikrofon jest odlaczony. Do jego powrotu nagrywa domyslny.'
+                  : 'Domyslny systemowy to ten z Ustawien systemowych → Dzwiek.'}
+            </div>
+          </div>
+          <div className="row-tail">
+            <select
+              value={settings.inputDevice}
+              aria-label="Mikrofon"
+              onChange={(e) => onPatch({ inputDevice: e.target.value })}
+            >
+              <option value={DEFAULT_DEVICE}>Domyslny systemowy</option>
+              {devices.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || 'Mikrofon bez nazwy'}
+                </option>
+              ))}
+              {missing && <option value={settings.inputDevice}>Odlaczony mikrofon</option>}
+            </select>
           </div>
         </div>
       </div>

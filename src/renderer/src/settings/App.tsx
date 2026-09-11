@@ -8,6 +8,7 @@ import type {
   ProviderMeta,
   Settings
 } from '../../../shared/types.js'
+import type { AudioDevice } from '../../../shared/devices.js'
 import { Banner } from './Banner.js'
 import type { Problem } from './Banner.js'
 import { GeneralPane } from './GeneralPane.js'
@@ -27,9 +28,13 @@ export function App(): React.JSX.Element | null {
   const [keys, setKeys] = useState<Record<ProviderId, KeyStatus> | null>(null)
   const [permissions, setPermissions] = useState<PermissionStatus | null>(null)
   const [status, setStatus] = useState<AppStatus | null>(null)
+  const [devices, setDevices] = useState<AudioDevice[]>([])
 
+  // Mikrofony ida w parze ze zgodami: nazwy pojawiaja sie dopiero po zgodzie na mikrofon,
+  // a urzadzenia wpina sie i wypina poza oknem — te same chwile, w ktorych odswiezamy zgody.
   const refreshPermissions = useCallback(async (): Promise<void> => {
     setPermissions(await window.api.getPermissions())
+    setDevices(await window.api.getInputDevices())
   }, [])
 
   useEffect(() => {
@@ -193,6 +198,7 @@ export function App(): React.JSX.Element | null {
             <GeneralPane
               settings={settings}
               permissions={permissions}
+              devices={devices}
               onPatch={patch}
               onRequestMicrophone={() =>
                 void window.api.requestMicrophone().then(refreshPermissions)
