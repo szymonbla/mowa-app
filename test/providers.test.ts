@@ -86,6 +86,8 @@ interface Case {
   fields: string[]
   /** Pola przy jezyku Auto, czyli bez `language` w opcjach. */
   withoutLanguage: string[]
+  /** Nazwa pola z jezykiem u tego dostawcy. */
+  languageField: string
 }
 
 const CASES: Case[] = [
@@ -96,7 +98,8 @@ const CASES: Case[] = [
     auth: 'Bearer klucz',
     // `file` musi byc ostatnie, a pola `model` nie ma wcale.
     fields: ['language', 'format', 'file'],
-    withoutLanguage: ['file']
+    withoutLanguage: ['file'],
+    languageField: 'language'
   },
   {
     provider: 'openai',
@@ -104,7 +107,8 @@ const CASES: Case[] = [
     header: 'Authorization',
     auth: 'Bearer klucz',
     fields: ['file', 'model', 'response_format', 'language'],
-    withoutLanguage: ['file', 'model', 'response_format']
+    withoutLanguage: ['file', 'model', 'response_format'],
+    languageField: 'language'
   },
   {
     provider: 'elevenlabs',
@@ -112,7 +116,8 @@ const CASES: Case[] = [
     header: 'xi-api-key',
     auth: 'klucz',
     fields: ['file', 'model_id', 'tag_audio_events', 'timestamps_granularity', 'language_code'],
-    withoutLanguage: ['file', 'model_id', 'tag_audio_events', 'timestamps_granularity']
+    withoutLanguage: ['file', 'model_id', 'tag_audio_events', 'timestamps_granularity'],
+    languageField: 'language_code'
   }
 ]
 
@@ -130,6 +135,13 @@ suite('opisy dostawcow', () => {
       stubFetch(ok({ text: '' }))
       await transcribe(c.provider, WAV, { apiKey: 'klucz', model: 'model-x' })
       expect(sent?.fields.map(([name]) => name)).toEqual(c.withoutLanguage)
+    })
+
+    // Jezyk spoza przypietych (Polski, English) — dostawca dostaje sam kod ISO 639-1.
+    it(`${c.provider}: jezyk spoza przypietych idzie jako kod ISO 639-1`, async () => {
+      stubFetch(ok({ text: '' }))
+      await transcribe(c.provider, WAV, { ...OPTS, language: 'cy' })
+      expect(sent?.fields).toContainEqual([c.languageField, 'cy'])
     })
   }
 

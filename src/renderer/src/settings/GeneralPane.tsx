@@ -44,11 +44,21 @@ export function GeneralPane({
               value={settings.language}
               onChange={(e) => onPatch({ language: e.target.value as LanguageId })}
             >
-              {LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
-              ))}
+              {/* Przypiete osobno — reszta to 55 pozycji, bez podzialu Polski ginie w srodku. */}
+              <optgroup label="Najczesciej">
+                {LANGUAGES.filter((l) => l.pinned).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Pozostale">
+                {LANGUAGES.filter((l) => !l.pinned).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
         </div>
