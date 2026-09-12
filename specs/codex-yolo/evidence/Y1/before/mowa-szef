@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="${MOWA_ROOT:-/home/szymon/mowa}"
+goal="${*:-}"
+
+if [[ -z "$goal" ]]; then
+  echo "usage: mowa-szef \"goal in Polish\"" >&2
+  exit 2
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex not found on PATH" >&2
+  exit 1
+fi
+
+if [[ "${HERDR_ENV:-}" != "1" ]]; then
+  cat >&2 <<'MSG'
+mowa-szef must be started inside Herdr.
+
+Run:
+  cd ~/mowa
+  herdr --session mowa
+
+Then, inside the Herdr pane:
+  mowa-szef "goal in Polish"
+MSG
+  exit 1
+fi
+
+cd "$root"
+
+prompt=$(cat <<PROMPT
+Start as Szef for mowa.
+
+Goal from Szymon:
+$goal
+
+Read SZEF.md, vision.md, build.md, AGENT-LOOP.md, and AGENTS.md. Then create or
+update specs/<slug>/, write worker-sized tickets, update build.md, and dispatch
+workers only when the ticket is ready. Report to Szymon in Polish. Do not
+implement product code in this session.
+PROMPT
+)
+
+exec env MOWA_SZEF=1 codex --model "${MOWA_MODEL:-gpt-6-astra}" \
+  -c "model_reasoning_effort=\"${MOWA_EFFORT:-high}\"" \
+  --sandbox workspace-write --ask-for-approval on-request "$prompt"

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Configure the project-owned Hermes profile without touching credentials."""
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+root = Path(os.environ.get("MOWA_ROOT", Path(__file__).resolve().parents[2])).resolve()
+hermes = shutil.which("hermes")
+if not hermes:
+    sys.exit("hermes not found on PATH; install Hermes CLI first")
+
+profile_name = "szef"
+profile = Path.home() / ".hermes" / "profiles" / profile_name
+soul_source = root / "scripts" / "agents" / "szef-soul.md"
+if not soul_source.is_file():
+    sys.exit(f"Szef instructions not found: {soul_source}")
+
+created = not profile.exists()
+if created:
+    subprocess.run([hermes, "profile", "create", profile_name,
+                    "--description", "Coordinates mowa tickets, workers, corrections and reviews through Herdr."],
+                   check=True)
+
+soul = profile / "SOUL.md"
+if not created and (not soul.is_symlink() or soul.resolve() != soul_source):
+    sys.exit(f"Existing profile has its own SOUL.md; preserve and inspect it before configuring: {soul}")
+if created:
+    if soul.is_symlink() or soul.exists():
+        soul.unlink()
+    soul.symlink_to(soul_source)
+
+settings = {
+    "model.provider": "openai-codex",
+    "model.default": "gpt-6-astra",
+    "agent.reasoning_effort": "high",
+    "terminal.backend": "local",
+    "terminal.cwd": str(root),
+    "terminal.home_mode": "real",
+}
+for key, value in settings.items():
+    subprocess.run([hermes, "-p", profile_name, "config", "set", key, value], check=True)
+
+print(f"Configured Hermes profile {profile_name}: {profile}")
+print("Credentials are managed by Hermes; no credentials were copied by this script.")
+print('Start inside Herdr: mowa-szef "goal in Polish"')

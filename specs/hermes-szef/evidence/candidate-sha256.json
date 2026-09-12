@@ -1,0 +1,10 @@
+{
+  "scripts/agents/mowa-szef": "2de537cba451109b844d7fcc246c0afe939faa4efde805d4b9fb74f8384a8f79",
+  "scripts/agents/mowa-dispatch-herdr": "f91b5a4c0c4ab3e989bc7d171f82d790d7ecb81c92525c1870c1553417e6e8e1",
+  "scripts/agents/mowa-setup-szef": "b401ec90ece5cf49d4b9cf0991bc2b0235c6f6b1070e835a529bdb67cdb4b7e6",
+  "scripts/agents/szef-soul.md": "fd22e5bb3738c540bb1f4d93036d5f0295f41842ede0fde0b824edc2eb377228",
+  "scripts/agents/README.md": "24307f851a6353028d1375e804ccee611c8459e25bac19f188e6d315bd49fc71",
+  "SZEF.md": "dcdf43deba45edbea827695888b9ff3fd325847519ee927a4481c67c9e96d8f4",
+  "AGENT-LOOP.md": "20ff59c70f6f1abd4d3368440c5670a76be3b0e33bb75f34621484e764b06605",
+  "roles/_common.md": "5427c252ba84b019772abce425483d35052d672dc97dbf6f390021f533be2794"
+}

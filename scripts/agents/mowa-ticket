@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: mowa-ticket <ticket-id>" >&2
+  exit 2
+}
+
+[[ $# -eq 1 ]] || usage
+id="$1"
+
+if [[ ! "$id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "ticket id must use letters, numbers, dot, underscore, or dash" >&2
+  exit 2
+fi
+
+root="${MOWA_ROOT:-/home/szymon/mowa}"
+work="${MOWA_WORK:-/home/szymon/mowa-work}"
+template="$root/docs/agents/templates/ticket.md"
+path="$work/tickets/$id.md"
+
+mkdir -p "$work"/{tickets,specs,handoffs,reviews,board}
+
+if [[ -e "$path" ]]; then
+  echo "$path"
+  exit 0
+fi
+
+sed "s/<id>/$id/g" "$template" > "$path"
+echo "$path"
