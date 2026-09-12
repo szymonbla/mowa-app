@@ -108,7 +108,7 @@ export function Overlay(): React.JSX.Element | null {
   if (!payload) return null
   const { state, message } = payload
 
-  if (state === 'error' || state === 'warning') {
+  if (state === 'error') {
     return (
       <div className={`pill ${state}`}>
         <span className="message">{message ?? 'Blad'}</span>

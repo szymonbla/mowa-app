@@ -10,7 +10,7 @@ import type { OverlayPayload } from '../../src/shared/types.js'
 import type { CloseLine, OpenLine } from '../../src/main/transcripts.js'
 
 /**
- * Test calej sciezki dyktowania: skrot → nagranie → transkrypcja → korekta →
+ * Test calej sciezki dyktowania: skrot → nagranie → transkrypcja →
  * schowek → Cmd+V → wpis w logu. Biegnie **prawdziwy** kod produkcyjny, razem
  * z `dictation-host.ts`, ktory sklada dyktowanie z pozostalych modulow — wlasnie
  * to sklejenie jest tu badane. Testy jednostkowe obok sprawdzaja kazdy modul
@@ -23,7 +23,7 @@ import type { CloseLine, OpenLine } from '../../src/main/transcripts.js'
  *   node:os            — bez tego log pisalby do prawdziwego `~/.mowa`
  *   fetch              — przekierowany na serwer lokalny; obce adresy sa bledem
  *
- * Wszystko miedzy nimi — dostawcy, korekta, straz, budzet, log — jest prawdziwe.
+ * Wszystko miedzy nimi — dostawcy i log — jest prawdziwe.
  */
 
 /** Zadanie HTTP zlapane przez serwer atrapy. */
@@ -264,7 +264,6 @@ async function uruchom(nadpisania: Record<string, unknown> = {}): Promise<Aplika
   ustawienia.patchSettings({
     provider: 'xai',
     language: 'pl',
-    cleanup: true,
     transcripts: true,
     ...nadpisania
   })
@@ -343,34 +342,25 @@ function czekaj(ms: number): Promise<void> {
 }
 
 describe('cala sciezka dyktowania', () => {
-  it('poprawiony tekst trafia do schowka, a wpis do logu', async () => {
-    const app = await uruchom()
+  it('surowy tekst trafia do schowka bez dodatkowego zadania do modelu', async () => {
+    const app = await uruchom({ cleanup: true })
     await podyktuj(app)
 
-    expect(stan.schowek).toEqual([POPRAWIONY])
-    // Schowek to nie wszystko — bez Cmd+V tekst nigdzie sie nie pojawia.
+    expect(stan.schowek).toEqual([SUROWY])
     expect(stan.polecenia.some(([plik]) => plik === 'osascript')).toBe(true)
     expect(kanaly()).toContain('record:start')
     expect(kanaly()).toContain('record:stop')
-    expect(pigulka()).toEqual(['recording', 'transcribing', 'correcting', 'done'])
+    expect(pigulka()).toEqual(['recording', 'transcribing', 'done'])
+    expect(stan.zadania.map((z) => z.url)).toEqual(['/v1/stt'])
 
     const { otwarcie, domkniecie } = await wpis()
     expect(otwarcie.raw).toBe(SUROWY)
     expect(otwarcie.lang).toBe('pl')
     expect(otwarcie.speechMs).toBe(4000)
-    // Dwa zapisy sa jednym wpisem tylko przez `id` — bez tego log jest bezuzyteczny.
     expect(domkniecie.id).toBe(otwarcie.id)
-    expect(domkniecie.outcome).toBe('corrected')
-    expect(domkniecie.clean).toBe(POPRAWIONY)
-    expect(domkniecie.provider).toBe('xai')
-    // Wpis ma nazwac model, ktory naprawde poprawial. Log, ktory klamie o modelu,
-    // nie nadaje sie do porownywania modeli — czyli do jedynego celu, dla ktorego jest.
-    const zadanieCzatu = stan.zadania.find((z) => z.url === '/v1/chat/completions')
-    const cialo = JSON.parse(zadanieCzatu!.tresc.toString('utf8')) as { model: string }
-    expect(domkniecie.model).toBe(cialo.model)
-    expect(cialo.model).toBeTruthy()
-
-    // Transkrypty to prywatna tresc: plik nalezy tylko do uzytkownika.
+    expect(domkniecie.outcome).toBe('off')
+    expect(domkniecie.clean).toBe('')
+    expect(domkniecie.cleanupMs).toBe(0)
     const info = await stat(sciezkaLogu())
     expect(info.mode & 0o777).toBe(0o600)
   })
@@ -391,68 +381,6 @@ describe('cala sciezka dyktowania', () => {
     expect(tresc.indexOf('name="file"')).toBeGreaterThan(tresc.indexOf('name="format"'))
   })
 
-  it('awaria czatu nie gasi klucza i nie zabiera tekstu', async () => {
-    stan.czat = () => ({ status: 401, json: { error: 'brak zakresu ACL' } })
-    const app = await uruchom()
-    await podyktuj(app)
-
-    expect(stan.schowek).toEqual([SUROWY])
-    // Sedno: klucz xAI ma zakres ACL, wiec waski klucz przechodzi STT i pada na
-    // czacie. Gdyby to 401 wyszlo na wierzch, zapalaloby lampke przy dzialajacym
-    // kluczu i kazaloby uzytkownikowi naprawiac cos, co nie jest zepsute.
-    expect(app.status.getStatus().keyHealth.xai.state).toBe('ok')
-    expect(pigulka().at(-1)).toBe('warning')
-
-    const { domkniecie } = await wpis()
-    expect(domkniecie.outcome).toBe('fail:provider')
-    expect(domkniecie.clean).toBe('')
-  })
-
-  it('wynik odrzucony przez straz nie trafia do schowka', async () => {
-    stan.czat = () => ({
-      json: odpowiedzCzatu(
-        'Jasne, przygotuję dla Ciebie ten raport i wyślę go do klienta jutro rano, ' +
-          'a potem dam znać, gdy tylko dostanę potwierdzenie odbioru.'
-      )
-    })
-    const app = await uruchom()
-    await podyktuj(app)
-
-    expect(stan.schowek).toEqual([SUROWY])
-    const { domkniecie } = await wpis()
-    expect(domkniecie.outcome).toBe('fail:guard')
-    // Bez warstwy nie da sie zestroic progow strazy na zebranym materiale.
-    expect(domkniecie.rejectedBy).toBeTruthy()
-  })
-
-  it('przekroczony budzet konczy sie tekstem surowym', { timeout: 15000 }, async () => {
-    stan.czat = () => ({ milczy: true })
-    const app = await uruchom()
-    const start = Date.now()
-    // Podloga budzetu to 1,5 s — krotkie nagranie jej nie obniza.
-    await podyktuj(app, 1000)
-
-    expect(stan.schowek).toEqual([SUROWY])
-    expect(Date.now() - start).toBeLessThan(4000)
-    const { domkniecie } = await wpis()
-    expect(domkniecie.outcome).toBe('fail:budget')
-  })
-
-  it('wylaczona korekta nie wola czatu', async () => {
-    const app = await uruchom({ cleanup: false })
-    await podyktuj(app)
-
-    expect(stan.schowek).toEqual([SUROWY])
-    expect(stan.zadania.map((z) => z.url)).toEqual(['/v1/stt'])
-    expect(pigulka()).not.toContain('correcting')
-
-    const { domkniecie } = await wpis()
-    // 'off' zamiast pustego wyniku — inaczej wpis nie odrozni wylaczonej korekty
-    // od nieudanej, a to dwie rozne rzeczy przy ocenie materialu.
-    expect(domkniecie.outcome).toBe('off')
-    expect(domkniecie.cleanupMs).toBe(0)
-  })
-
   it('zly klucz do transkrypcji nie zostawia wpisu', async () => {
     stan.stt = () => ({ status: 401, json: { error: 'zly klucz' } })
     const app = await uruchom()
@@ -470,7 +398,7 @@ describe('cala sciezka dyktowania', () => {
     const app = await uruchom({ transcripts: false })
     await podyktuj(app)
 
-    expect(stan.schowek).toEqual([POPRAWIONY])
+    expect(stan.schowek).toEqual([SUROWY])
     await czekaj(50)
     await expect(stat(sciezkaLogu())).rejects.toThrow()
 
@@ -488,7 +416,7 @@ describe('cala sciezka dyktowania', () => {
     await podyktuj(app)
 
     // Tekst jest w schowku, zanim wklejenie w ogole ruszy — Cmd+V recznie ratuje.
-    expect(stan.schowek).toEqual([POPRAWIONY])
+    expect(stan.schowek).toEqual([SUROWY])
     const blad = app.status.getStatus().lastError
     expect(blad?.fix).toBe('automation')
     expect(blad?.message).toBe('Brak zgody Automatyzacja — tekst w schowku')
@@ -496,28 +424,23 @@ describe('cala sciezka dyktowania', () => {
     expect(app.zgody.getPermissions().automation).toBe('denied')
   })
 
-  it('Esc w trakcie korekty domyka wpis i nie wkleja', async () => {
+  it('Esc w trakcie transkrypcji porzuca wynik', async () => {
     let wszedl = (): void => {}
-    const czatWszedl = new Promise<void>((gotowe) => {
+    const sttWszedl = new Promise<void>((gotowe) => {
       wszedl = gotowe
     })
-    stan.czat = () => {
+    stan.stt = () => {
       wszedl()
-      return { json: odpowiedzCzatu(POPRAWIONY), zwlokaMs: 100 }
+      return { json: { text: SUROWY }, zwlokaMs: 100 }
     }
-
     const app = await uruchom()
     app.dyktowanie.toggle()
     app.dyktowanie.toggle()
     const bieg = app.dyktowanie.submit(nagranie())
-    await czatWszedl
+    await sttWszedl
     app.dyktowanie.cancel()
     await bieg
-
     expect(stan.schowek).toEqual([])
-    // Polowka wpisu nie nadaje sie do niczego, wiec domkniecie idzie mimo Esc.
-    const { otwarcie, domkniecie } = await wpis()
-    expect(domkniecie.id).toBe(otwarcie.id)
-    expect(domkniecie.outcome).toBe('corrected')
+    await expect(stat(sciezkaLogu())).rejects.toThrow()
   })
 })

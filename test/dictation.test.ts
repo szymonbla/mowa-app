@@ -73,7 +73,7 @@ function fake(): Fake {
       providerLabel: 'xAI Grok',
       model: '',
       language: f.language,
-      cleanup: f.cleanup
+      ...{ cleanup: f.cleanup }
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
@@ -105,17 +105,13 @@ function fake(): Fake {
       f.health.push({ provider, health })
     },
     transcribe: () => f.transcribe(),
-    correct: (text, speechMs) => f.correct(text, speechMs),
-    warmCorrector: () => {
-      f.warmed++
-    },
     logRaw: (raw) => {
       if (!f.transcripts) return null
       f.log.open.push(raw)
       return `wpis-${f.log.open.length}`
     },
-    logDone: (id, correction) => {
-      f.log.close.push({ id, correction })
+    logDone: (id) => {
+      f.log.close.push({ id, correction: null })
     },
     paste: (text) => {
       f.pasted.push(text)
@@ -345,173 +341,47 @@ suite('czas zycia pigulki', () => {
   })
 })
 
-suite('korekta w sciezce dyktowania', () => {
-  /** Nagrywa i konczy z wlaczona korekta. */
-  function withCleanup(f: Fake): Dictation {
-    f.cleanup = true
-    return recorded(f)
-  }
-
-  it('wkleja wersje poprawiona i pokazuje faze korekty', async () => {
-    const f = fake()
-    f.correct = (text) =>
-      Promise.resolve<Correction>({ kind: 'corrected', text: `${text}.`, attempt: ATTEMPT })
-
-    await withCleanup(f).submit(audio())
-
-    expect(f.overlay.map((o) => o.state)).toContain('correcting')
-    expect(f.pasted).toEqual(['Dzien dobry.'])
-    expect(lastOverlay(f)).toEqual({ state: 'done' })
-  })
-
-  it('rozgrzewa polaczenie przy wcisnieciu skrotu, nie po nagraniu', () => {
+suite('transkrypcja bez przepisywania', () => {
+  it('ignoruje dawny przelacznik korekty i zachowuje slowa dostawcy', async () => {
     const f = fake()
     f.cleanup = true
+    const raw = 'Yyy, ja ja chce jutro, nie, w piatek wyslac ten tekst'
+    f.transcribe = () => Promise.resolve(raw)
+    let corrections = 0
+    f.correct = () => {
+      corrections++
+      return Promise.resolve({ kind: 'corrected', text: 'Wysle tekst w piatek.', attempt: ATTEMPT })
+    }
 
-    createDictation(f.host).toggle()
-
-    expect(f.warmed).toBe(1)
-  })
-
-  it('wylaczona korekta nie rusza tekstu ani nie rozgrzewa', async () => {
-    const f = fake()
-    f.correct = () => Promise.reject(new Error('nie wolno wolac'))
-
+    Object.assign(f.host, {
+      correct: (text: string, speechMs: number) => f.correct(text, speechMs),
+      warmCorrector: () => {
+        f.warmed++
+      }
+    })
     await recorded(f).submit(audio())
 
+    expect(f.pasted).toEqual([raw])
+    expect(corrections).toBe(0)
     expect(f.warmed).toBe(0)
-    expect(f.pasted).toEqual(['Dzien dobry'])
-    expect(f.overlay.map((o) => o.state)).not.toContain('correcting')
-  })
-
-  it('awaria korekty wkleja tekst surowy i ostrzega', async () => {
-    const f = fake()
-    f.correct = () =>
-      Promise.resolve<Correction>({
-        kind: 'failed',
-        failure: { kind: 'cleanup', reason: 'budget' },
-        attempt: ATTEMPT
-      })
-
-    await withCleanup(f).submit(audio())
-
-    // Tekst nie ginie nigdy — to jest cala roznica miedzy ostrzezeniem a bledem.
-    expect(f.pasted).toEqual(['Dzien dobry'])
-    expect(lastOverlay(f).state).toBe('warning')
-    expect(f.lastTimer().ms).toBe(2000)
-  })
-
-  it('awaria korekty nie zapala czerwonego paska w ustawieniach', async () => {
-    const f = fake()
-    f.correct = () =>
-      Promise.resolve<Correction>({
-        kind: 'failed',
-        failure: { kind: 'cleanup', reason: 'provider', detail: 'HTTP 401' },
-        attempt: ATTEMPT
-      })
-
-    await withCleanup(f).submit(audio())
-
-    expect(f.errors[f.errors.length - 1]).toBeNull()
-    expect(f.health.every((h) => h.health.state === 'ok')).toBe(true)
-  })
-
-  it('pominiecie z powodu dlugosci mowi o tym wprost', async () => {
-    const f = fake()
-    f.correct = () => Promise.resolve<Correction>({ kind: 'skipped', reason: 'too-long' })
-
-    await withCleanup(f).submit(audio())
-
-    expect(f.pasted).toEqual(['Dzien dobry'])
-    expect(lastOverlay(f)).toEqual({ state: 'warning', message: 'Za dlugi tekst — bez korekty' })
-  })
-
-  it('brak czego poprawiac konczy sie zwyklym potwierdzeniem', async () => {
-    const f = fake()
-    f.correct = () => Promise.resolve<Correction>({ kind: 'skipped', reason: 'nothing' })
-
-    await withCleanup(f).submit(audio())
-
-    expect(lastOverlay(f)).toEqual({ state: 'done' })
-  })
-
-  it('Esc w trakcie korekty porzuca wynik i nie wkleja nic', async () => {
-    const f = fake()
-    const dictation = withCleanup(f)
-    f.correct = (text) =>
-      new Promise<Correction>((resolve) => {
-        dictation.cancel()
-        resolve({ kind: 'corrected', text, attempt: ATTEMPT })
-      })
-
-    await dictation.submit(audio())
-
-    expect(f.pasted).toEqual([])
+    expect(f.overlay.map((o) => o.state)).toEqual(['recording', 'transcribing', 'done'])
+    expect(f.log.open).toEqual([raw])
+    expect(f.log.close).toEqual([{ id: 'wpis-1', correction: null }])
   })
 })
 
 suite('log transkryptow w sciezce dyktowania', () => {
-  function withCleanup(f: Fake): Dictation {
-    f.cleanup = true
-    return recorded(f)
-  }
-
-  it('zapisuje surowy tekst, zanim zawola korekte', async () => {
+  it('domyka wpis bez korekty', async () => {
     const f = fake()
-    const order: string[] = []
-    f.correct = () => {
-      order.push('correct')
-      const text = 'Dzień dobry.'
-      return Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT })
-    }
-    const dictation = withCleanup(f)
-    const logRaw = f.host.logRaw
-    f.host.logRaw = (raw, speechMs) => {
-      order.push('logRaw')
-      return logRaw(raw, speechMs)
-    }
-
-    await dictation.submit(audio())
-
-    // Kolejnosc jest cala wartoscia tego zapisu: awaria w trakcie korekty nie ma
-    // prawa zabrac materialu, ktory juz istnieje.
-    expect(order).toEqual(['logRaw', 'correct'])
-    expect(f.log.open).toEqual(['Dzien dobry'])
-  })
-
-  it('domyka wpis takze wtedy, gdy korekta w ogole nie startowala', async () => {
-    const f = fake()
-
-    // Przelacznik korekty wylaczony: zapis 2 idzie natychmiast po zapisie 1.
     await recorded(f).submit(audio())
-
     expect(f.log.open).toEqual(['Dzien dobry'])
     expect(f.log.close).toEqual([{ id: 'wpis-1', correction: null }])
-  })
-
-  it('domyka wpis po Esc w trakcie korekty', async () => {
-    const f = fake()
-    const dictation = withCleanup(f)
-    f.correct = (text) =>
-      new Promise<Correction>((resolve) => {
-        dictation.cancel()
-        resolve({ kind: 'corrected', text, attempt: ATTEMPT })
-      })
-
-    await dictation.submit(audio())
-
-    // Tekst przepadl, ale wpis nie: niedomkniety nie nadaje sie do niczego,
-    // a anulowane dyktowanie jest dla oceny tak samo dobre jak kazde inne.
-    expect(f.pasted).toEqual([])
-    expect(f.log.close).toHaveLength(1)
   })
 
   it('nie domyka wpisu, ktory nie powstal', async () => {
     const f = fake()
     f.transcripts = false
-
-    await withCleanup(f).submit(audio())
-
+    await recorded(f).submit(audio())
     expect(f.log.open).toEqual([])
     expect(f.log.close).toEqual([])
   })
@@ -519,9 +389,7 @@ suite('log transkryptow w sciezce dyktowania', () => {
   it('nie zapisuje niczego, gdy transkrypcja nie dala tekstu', async () => {
     const f = fake()
     f.transcribe = () => Promise.resolve('   ')
-
-    await withCleanup(f).submit(audio())
-
+    await recorded(f).submit(audio())
     expect(f.log.open).toEqual([])
   })
 })

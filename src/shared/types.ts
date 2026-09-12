@@ -13,13 +13,7 @@ export interface Settings {
   models: Record<ProviderId, string>
   language: LanguageId
   launchAtLogin: boolean
-  /** Korekta podyktowanego tekstu przez LLM. Domyslnie wlaczona. */
-  cleanup: boolean
-  /**
-   * Log transkryptow na dysku. Przelacznik **osobny** od korekty: to dwie rozne
-   * decyzje i inaczej wazy je prywatnosc. Domyslnie wlaczony — instalacja jest
-   * jednoosobowa; dystrybucja do innych osob otwiera te decyzje z powrotem.
-   */
+  /** Opcjonalny zapis surowych transkrypcji na dysku. */
   transcripts: boolean
 }
 
@@ -29,12 +23,7 @@ export interface KeyStatus {
   masked: string
 }
 
-/**
- * 'warning' = cos poszlo nie tak, ale tekst i tak sie wkleil. Osobny stan od 'error',
- * bo tam uzytkownik nie ma tekstu, a tu ma.
- */
-export type OverlayState =
-  'recording' | 'transcribing' | 'correcting' | 'done' | 'warning' | 'error'
+export type OverlayState = 'recording' | 'transcribing' | 'done' | 'error'
 
 export interface OverlayPayload {
   state: OverlayState

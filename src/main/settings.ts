@@ -15,7 +15,6 @@ const DEFAULTS: Settings = {
   models: { ...DEFAULT_MODELS },
   language: 'pl',
   launchAtLogin: false,
-  cleanup: true,
   transcripts: true
 }
 
@@ -25,7 +24,9 @@ let store: StoreFile = { ...DEFAULTS, apiKeys: {} }
 export function initSettings(): void {
   filePath = join(app.getPath('userData'), 'settings.json')
   try {
-    const raw = JSON.parse(readFileSync(filePath, 'utf8')) as Partial<StoreFile>
+    const { cleanup: _cleanup, ...raw } = JSON.parse(
+      readFileSync(filePath, 'utf8')
+    ) as Partial<StoreFile> & { cleanup?: unknown }
     store = {
       ...DEFAULTS,
       ...raw,
