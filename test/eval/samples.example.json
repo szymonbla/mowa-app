@@ -1,0 +1,19 @@
+[
+  {
+    "id": "example-noop",
+    "input": "Spotkanie przesuwamy na czwartek.",
+    "reference": "Spotkanie przesuwamy na czwartek.",
+    "mode": "exact"
+  },
+  {
+    "id": "example-punctuation",
+    "input": "no wiec ja mysle ze to jest dobry pomysl tylko trzeba to sprawdzic",
+    "reference": "No więc ja myślę, że to jest dobry pomysł, tylko trzeba to sprawdzić."
+  },
+  {
+    "id": "example-literal-untouched",
+    "input": "wejdz na examply.com/przyklad i sprawdz cene",
+    "reference": "Wejdź na examply.com/przyklad i sprawdź cenę.",
+    "mode": "exact"
+  }
+]

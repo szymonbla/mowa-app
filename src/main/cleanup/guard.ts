@@ -30,28 +30,60 @@ const PREAMBLE = /^\s*(?:oto|poprawiona wersja|poprawiony tekst|here(?:'s| is))\
 const FENCE_OPEN = /^\s*```[\p{L}]*\s*\n?/u
 const FENCE_CLOSE = /\n?\s*```\s*$/
 
-export function guard(input: string, raw: string): Verdict {
-  const text = keepShape(input, strip(raw))
-  if (!text.trim()) return { ok: false, layer: 'empty' }
+/**
+ * Liczby, na ktorych straz podejmuje decyzje. Werdykt sam w sobie mowi tylko "nie",
+ * a do strojenia progow (ticket 09) trzeba wiedziec **o ile** — odrzucenie przy 0,84
+ * i przy 0,31 to dwa rozne zjawiska. Wystawione osobno dla zestawu oceny.
+ */
+export interface Metrics {
+  before: number
+  after: number
+  /** Tokeny wyjscia / tokeny wejscia. */
+  ratio: number
+  /** Nietykalne tokeny wejscia, ktorych w wyjsciu nie ma. Pusta lista = warstwa zdana. */
+  missingLiterals: string[]
+  coverage: number
+  order: number
+}
 
+/**
+ * Ten sam rachunek co `guard()`, ale bez progow i bez wyjscia po pierwszym potknieciu.
+ * Liczy wiec czasem wiecej niz trzeba — przy 150 slowach to mikrosekundy.
+ */
+export function diagnose(input: string, raw: string): { text: string; metrics: Metrics } {
+  const text = keepShape(input, strip(raw))
   const before = tokens(input)
   const after = tokens(text)
+  return {
+    text,
+    metrics: {
+      before: before.length,
+      after: after.length,
+      ratio: before.length === 0 ? 1 : after.length / before.length,
+      missingLiterals: literals(input).filter((literal) => !text.includes(literal)),
+      coverage: coverage(before, after),
+      order: order(before, after)
+    }
+  }
+}
+
+export function guard(input: string, raw: string): Verdict {
+  const { text, metrics } = diagnose(input, raw)
+  if (!text.trim()) return { ok: false, layer: 'empty' }
+
+  const { before, after } = metrics
 
   // Rozdecie lapie dwa tryby porazki naraz: "ok" rozwiniete w pelne zdanie
   // oraz odpowiedz **na** tresc zamiast korekty.
-  if (after.length > before.length * MAX_RATIO + RATIO_SLACK) return { ok: false, layer: 'bloat' }
-  if (after.length < before.length * MIN_RATIO - RATIO_SLACK) {
-    return { ok: false, layer: 'truncation' }
-  }
+  if (after > before * MAX_RATIO + RATIO_SLACK) return { ok: false, layer: 'bloat' }
+  if (after < before * MIN_RATIO - RATIO_SLACK) return { ok: false, layer: 'truncation' }
 
-  for (const literal of literals(input)) {
-    if (!text.includes(literal)) return { ok: false, layer: 'literal' }
-  }
+  if (metrics.missingLiterals.length > 0) return { ok: false, layer: 'literal' }
 
-  if (coverage(before, after) < MIN_COVERAGE) return { ok: false, layer: 'coverage' }
+  if (metrics.coverage < MIN_COVERAGE) return { ok: false, layer: 'coverage' }
   // Parafraza zachowuje sens i czesc slow, ale lamie kolejnosc. Embeddingi tego nie
   // widza, bo mierza sens, a przepisanie sens zachowuje. LCS widzi.
-  if (order(before, after) < MIN_ORDER) return { ok: false, layer: 'order' }
+  if (metrics.order < MIN_ORDER) return { ok: false, layer: 'order' }
 
   return { ok: true, text }
 }
