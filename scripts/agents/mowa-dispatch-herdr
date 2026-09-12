@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: mowa-dispatch-herdr <agent-name> <spec-writer|implementer|reviewer|diagnoser|investigator> <ticket-path> [codex]" >&2
+  exit 2
+}
+
+[[ $# -ge 3 && $# -le 4 ]] || usage
+
+name="$1"
+role="$2"
+ticket="$3"
+kind="${4:-codex}"
+
+root="${MOWA_ROOT:-/home/szymon/mowa}"
+workspace="$root"
+
+if [[ "${HERDR_ENV:-}" != "1" ]]; then
+  echo "mowa-dispatch-herdr must be run from a Herdr pane" >&2
+  exit 1
+fi
+
+if [[ ! "$name" =~ ^[a-z][a-z0-9_-]{0,31}$ ]]; then
+  echo "agent name must match Herdr names: [a-z][a-z0-9_-]{0,31}" >&2
+  exit 2
+fi
+
+case "$role" in
+  spec-writer|implementer|reviewer|diagnoser|investigator) ;;
+  *) usage ;;
+esac
+
+case "$kind" in
+  codex) ;;
+  claude) echo "This workflow uses Codex only; Claude dispatch is disabled" >&2; exit 2 ;;
+  *) usage ;;
+esac
+
+command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+
+if [[ ! -f "$ticket" ]]; then
+  echo "ticket not found: $ticket" >&2
+  exit 1
+fi
+
+if herdr agent get "$name" >/dev/null 2>&1; then
+  echo "agent already exists: $name" >&2
+  exit 1
+fi
+
+out=$(herdr workspace create --cwd "$workspace" --label "$name" --env "MOWA_ROLE=$role" --no-focus)
+pane=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["result"]["root_pane"]["pane_id"])' "$out")
+
+case "$role" in
+  spec-writer|diagnoser) model="gpt-6-astra"; effort="high" ;;
+  implementer|reviewer) model="gpt-5.6-sol"; effort="high" ;;
+  investigator) model="gpt-5.6-terra"; effort="medium" ;;
+esac
+model="${MOWA_MODEL:-$model}"
+effort="${MOWA_EFFORT:-$effort}"
+
+herdr agent start "$name" --kind codex --pane "$pane" --timeout 90000 -- \
+  --model "$model" -c "model_reasoning_effort=\"$effort\"" \
+  --yolo --add-dir "$root"
+
+prompt=$(cat <<PROMPT
+You are the $role for this task. Read the ticket first, then $root/roles/_common.md and $root/roles/$role.md.
+Ticket: $ticket
+Why it matters: ${MOWA_WHY:-this ticket is part of the mowa overnight worker loop; read the ticket, do exactly that work, append notes, then stop.}
+PROMPT
+)
+
+# Verify that the submitted prompt actually starts work, then return immediately.
+# A timeout/stalled result keeps the named session available for inspection.
+herdr agent prompt "$name" "$prompt" --wait --until working --timeout 10000
+
+echo "started Herdr agent: $name ($role, $kind)"
+echo "workspace: $workspace"
+echo "ticket: $ticket"
+echo "Worker activity observed. Inspect its written handoff after a bounded Herdr wait."

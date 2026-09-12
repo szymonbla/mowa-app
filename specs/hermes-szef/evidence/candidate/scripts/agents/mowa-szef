@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+root="${MOWA_ROOT:-$(cd -- "$script_dir/../.." && pwd)}"
+# Runtime commands may be symlinks outside the repo.
+[[ -f "$root/SZEF.md" ]] || root="${MOWA_ROOT:-/home/szymon/mowa}"
+goal="${*:-}"
+
+if [[ -z "$goal" ]]; then
+  echo "usage: mowa-szef \"goal in Polish\"" >&2
+  exit 2
+fi
+
+if ! command -v hermes >/dev/null 2>&1; then
+  echo "hermes not found on PATH; install Hermes CLI first" >&2
+  exit 1
+fi
+
+if [[ "${HERDR_ENV:-}" != "1" ]]; then
+  cat >&2 <<'MSG'
+mowa-szef must be started inside Herdr.
+
+Run:
+  cd ~/mowa
+  herdr --session mowa
+
+Then, inside the Herdr pane:
+  mowa-szef "goal in Polish"
+MSG
+  exit 1
+fi
+
+cd "$root"
+
+if herdr agent get szef >/dev/null 2>&1; then
+  echo "Szef is already running; return to it with: herdr agent focus szef" >&2
+  exit 1
+fi
+
+profile="${MOWA_SZEF_PROFILE:-szef}"
+if [[ ! -f "$HOME/.hermes/profiles/$profile/config.yaml" ]]; then
+  echo "Hermes profile not configured: $profile; run scripts/agents/mowa-setup-szef" >&2
+  exit 1
+fi
+
+export PATH="$root/scripts/agents:$PATH"
+export MOWA_ROOT="$root"
+
+prompt=$(cat <<PROMPT
+Start as Szef for mowa.
+
+Goal from Szymon:
+$goal
+
+Read SZEF.md, vision.md, build.md, AGENT-LOOP.md, and AGENTS.md. Then create or
+update specs/<slug>/, write worker-sized tickets, update build.md, and dispatch
+workers only when the ticket is ready. Register this Hermes agent as szef with
+Herdr using the inherited HERDR_PANE_ID if it is not already named. Report to Szymon in Polish. Do not
+implement product code in this session.
+PROMPT
+)
+
+exec env MOWA_SZEF=1 hermes -p "$profile" chat --cli \
+  --provider openai-codex --model "${MOWA_MODEL:-gpt-6-astra}" \
+  --reasoning "${MOWA_EFFORT:-high}" \
+  --yolo --continue szef --create-if-missing --query "$prompt"

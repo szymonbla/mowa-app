@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from 'vitest'
-import { guard } from '../src/main/cleanup/guard.js'
+import { MAX_RATIO, MIN_COVERAGE, MIN_ORDER, diagnose, guard } from '../src/main/cleanup/guard.js'
 
 /** Wejscie po lokalnym wycieciu wypelniaczy — z tym straz porownuje wyjscie. */
 const INPUT = 'no wiec ja mysle ze to jest dobry pomysl tylko trzeba to sprawdzic'
@@ -96,5 +96,49 @@ suite('straz odrzuca nadgorliwosc', () => {
       'Wejdź na examply.com/ценник i sprawdź cenę.'
     )
     expect(v.ok).toBe(true)
+  })
+})
+
+suite('diagnose liczy metryki bez progow', () => {
+  it('zwraca liczby zgodne z przyjeta korekta', () => {
+    const { text, metrics } = diagnose(INPUT, FIXED)
+    expect(text).toBe(FIXED)
+    expect(metrics.before).toBe(13)
+    expect(metrics.after).toBe(13)
+    expect(metrics.ratio).toBe(1)
+    expect(metrics.missingLiterals).toEqual([])
+    expect(metrics.coverage).toBe(1)
+    expect(metrics.order).toBe(1)
+  })
+
+  it('nie odrzuca — sam raportuje niski wskaznik dla bloatu', () => {
+    const { metrics } = diagnose(
+      'ok',
+      'Ok, w takim razie zabieram się do pracy i dam znać wieczorem.'
+    )
+    expect(metrics.ratio).toBeGreaterThan(MAX_RATIO)
+  })
+
+  it('wypisuje brakujacy literal zamiast tylko odrzucic', () => {
+    const { metrics } = diagnose(
+      'wejdz na examply.com/ценник i sprawdz cene',
+      'Wejdź na example.com/cennik i sprawdź cenę.'
+    )
+    expect(metrics.missingLiterals).toEqual(['examply.com/ценник'])
+  })
+
+  it('mowi "o ile" tam, gdzie guard mowi tylko "nie" — parafraza', () => {
+    const input = 'trzeba to sprawdzic zanim wyslemy to do klienta w piatek'
+    const raw = 'W piątek, zanim do klienta to wyślemy, sprawdzić to trzeba.'
+    expect(guard(input, raw)).toEqual({ ok: false, layer: 'order' })
+    const { metrics } = diagnose(input, raw)
+    expect(metrics.order).toBeLessThan(MIN_ORDER)
+  })
+
+  it('metryki przyjetej korekty spelniaja wszystkie progi guard', () => {
+    const { metrics } = diagnose(INPUT, FIXED)
+    expect(metrics.ratio).toBeLessThanOrEqual(MAX_RATIO)
+    expect(metrics.coverage).toBeGreaterThanOrEqual(MIN_COVERAGE)
+    expect(metrics.order).toBeGreaterThanOrEqual(MIN_ORDER)
   })
 })

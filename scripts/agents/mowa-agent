@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: mowa-agent <agent-name> <coordinator|spec-writer|worker|reviewer> <ticket-path> [command...]" >&2
+  exit 2
+}
+
+[[ $# -ge 3 ]] || usage
+
+name="$1"
+role="$2"
+ticket="$3"
+shift 3
+
+if [[ ! "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "agent name must use letters, numbers, dot, underscore, or dash" >&2
+  exit 2
+fi
+
+case "$role" in
+  coordinator|spec-writer|worker|reviewer) ;;
+  *) usage ;;
+esac
+
+root="${MOWA_ROOT:-/home/szymon/mowa}"
+agents="${MOWA_AGENTS:-/home/szymon/mowa-agents}"
+work="${MOWA_WORK:-/home/szymon/mowa-work}"
+workspace="$agents/$name"
+session="mowa-$name"
+prompt="$root/docs/agents/prompts/$role.md"
+session_file="$workspace/AGENT_SESSION.md"
+
+mkdir -p "$work"/{tickets,specs,handoffs,reviews,board}
+
+if [[ ! -d "$workspace" ]]; then
+  mowa-new-agent "$name" >/dev/null
+fi
+
+{
+  echo "# Agent session"
+  echo
+  echo "Role: $role"
+  echo "Agent: $name"
+  echo "Workspace: $workspace"
+  echo "Ticket: $ticket"
+  echo
+  echo "## Role prompt"
+  echo
+  cat "$prompt"
+  echo
+  echo "## Ticket"
+  echo
+  cat "$ticket"
+} > "$session_file"
+
+if tmux has-session -t "$session" 2>/dev/null; then
+  if [[ -t 0 && -t 1 ]]; then
+    tmux attach -t "$session"
+  else
+    echo "session already running: $session"
+    echo "attach with: tmux attach -t $session"
+  fi
+  exit 0
+fi
+
+if [[ $# -gt 0 ]]; then
+  tmux new-session -d -s "$session" -c "$workspace" "$*"
+  echo "started detached session: $session"
+  echo "attach with: tmux attach -t $session"
+else
+  if [[ -t 0 && -t 1 ]]; then
+    tmux new-session -s "$session" -c "$workspace"
+  else
+    tmux new-session -d -s "$session" -c "$workspace"
+    echo "started detached shell session: $session"
+    echo "attach with: tmux attach -t $session"
+  fi
+fi

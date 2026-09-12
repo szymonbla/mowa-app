@@ -1,0 +1,35 @@
+--- before/scripts/agents/mowa-szef
++++ after/scripts/agents/mowa-szef
+@@ -45,4 +45,4 @@
+ 
+ exec env MOWA_SZEF=1 codex --model "${MOWA_MODEL:-gpt-6-astra}" \
+   -c "model_reasoning_effort=\"${MOWA_EFFORT:-high}\"" \
+-  --sandbox workspace-write --ask-for-approval on-request "$prompt"
++  --yolo "$prompt"
+--- before/scripts/agents/mowa-dispatch-herdr
++++ after/scripts/agents/mowa-dispatch-herdr
+@@ -72,7 +72,7 @@
+ 
+ herdr agent start "$name" --kind codex --pane "$pane" --timeout 90000 -- \
+   --model "$model" -c "model_reasoning_effort=\"$effort\"" \
+-  --sandbox workspace-write --ask-for-approval on-request --add-dir "$root"
++  --yolo --add-dir "$root"
+ 
+ prompt=$(cat <<PROMPT
+ You are the $role for this task. Read the ticket first, then $root/roles/_common.md and $root/roles/$role.md.
+--- before/scripts/agents/README.md
++++ after/scripts/agents/README.md
+@@ -27,8 +27,11 @@
+ current model; these defaults apply to newly launched sessions.
+ 
+ Workers explicitly read `roles/_common.md` and their role file after the ticket.
+-Codex uses workspace-write sandboxing and on-request approvals; workers also
+-receive write access to the main checkout for worktrees and shared notes.
++New coordinator and worker sessions launch Codex with `--yolo`, disabling
++Codex sandboxing and approval prompts. Workers retain `--add-dir` for the main
++checkout used for worktrees and shared notes. Existing sessions keep their
++current sandbox and approval settings. Merge rules remain in `roles/_common.md`;
++only Szymon merges.
+ Keep the board’s limit of two worker panes, including reviewers.
+ 
+ `mowa-agent`, `mowa-herd`, `mowa-ticket`, and `mowa-board` are legacy helpers;

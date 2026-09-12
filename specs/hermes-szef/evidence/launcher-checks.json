@@ -1,0 +1,21 @@
+{
+  "passed": 16,
+  "checks": [
+    "Hermes coordinator launches successfully",
+    "Coordinator uses Hermes instead of Codex",
+    "Coordinator selects the Szef profile",
+    "Coordinator explicitly selects Astra/high and YOLO",
+    "Coordinator resumes its named conversation",
+    "Goal text is preserved without shell evaluation",
+    "Coordinator refuses execution outside Herdr before invoking Hermes",
+    "Coordinator forwards explicit model and effort",
+    "Coordinator refuses a second live Szef",
+    "Worker dispatch succeeds without repository copying",
+    "Worker pane reads instructions in the canonical checkout",
+    "Worker start receives returned pane ID and Codex YOLO",
+    "Dispatch verifies activity without waiting for task completion",
+    "Duplicate workers are refused without creating a workspace",
+    "Startup failure never submits an assignment",
+    "Invalid roles are refused before dispatch"
+  ]
+}

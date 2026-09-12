@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+work="${MOWA_WORK:-/home/szymon/mowa-work}"
+
+mkdir -p "$work"/{tickets,specs,handoffs,reviews,board}
+
+echo "== tickets =="
+find "$work/tickets" -maxdepth 1 -type f -name '*.md' -print | sort || true
+echo
+echo "== specs =="
+find "$work/specs" -maxdepth 1 -type f -name '*.md' -print | sort || true
+echo
+echo "== handoffs =="
+find "$work/handoffs" -maxdepth 1 -type f -name '*.md' -print | sort || true
+echo
+echo "== reviews =="
+find "$work/reviews" -maxdepth 1 -type f -name '*.md' -print | sort || true

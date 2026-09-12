@@ -58,50 +58,16 @@ export function GeneralPane({
         </div>
       </div>
 
-      <div className="group-title">Tekst</div>
-
-      {/*
-        Jeden podpis ustawia oczekiwania na cala funkcje. Alternatywa — sygnal przy
-        kazdym dyktowaniu — bylaby halasem: modul nie wie, kiedy sie pomylil.
-      */}
-      <div className="card">
-        <div className="row">
-          <Glyph name="text" />
-          <div className="row-main">
-            <div className="row-title">Poprawiaj podyktowany tekst</div>
-            <div className="row-desc">
-              Interpunkcja, gramatyka i literowki. Slowa i szyk zostaja Twoje. Nazw przekreconych
-              przez rozpoznawanie mowy nie prostuje.
-            </div>
-          </div>
-          <div className="row-tail">
-            <button
-              className="switch"
-              data-on={settings.cleanup}
-              role="switch"
-              aria-checked={settings.cleanup}
-              aria-label="Poprawiaj podyktowany tekst"
-              onClick={() => onPatch({ cleanup: !settings.cleanup })}
-            />
-          </div>
-        </div>
-      </div>
-
       <div className="group-title">Transkrypty</div>
 
-      {/*
-        Przelacznik **osobny** od korekty. Sklejenie ich odbieraloby wybor: to dwie
-        rozne decyzje i inaczej wazy je prywatnosc.
-      */}
       <div className="card">
         <div className="row">
           <Glyph name="record" />
           <div className="row-main">
             <div className="row-title">Zapisuj transkrypty na dysku</div>
             <div className="row-desc">
-              Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — po to, zeby dalo
-              sie sprawdzic, czy korekta pomaga. Plik nie idzie do kopii zapasowej. Nic go nie
-              kasuje samo.
+              Kazde dyktowanie laduje w <code>~/.mowa/transkrypty.jsonl</code> — jako surowy tekst
+              zwrocony przez model. Plik nie idzie do kopii zapasowej. Nic go nie kasuje samo.
             </div>
           </div>
           <div className="row-tail">

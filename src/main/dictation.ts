@@ -3,35 +3,15 @@ import { spokenLanguage } from '../shared/languages.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
 import type { TranscribeOptions } from './providers/index.js'
-import type { Correction, SkipReason } from './cleanup/index.js'
 
-type Phase = 'idle' | 'recording' | 'transcribing' | 'correcting'
+type Phase = 'idle' | 'recording' | 'transcribing'
 
 const DONE_HIDE_MS = 600
-/** Ostrzezenie: tekst jest juz wklejony, wiec ma sie przeczytac, a nie zatrzymywac. */
-const NOTICE_HIDE_MS = 2000
 const ERROR_HIDE_MS = 2600
 /** Blad, ktory wymaga dzialania, musi zdazyc sie przeczytac. */
 const ACTION_HIDE_MS = 5200
 /** Ponizej tego progu nagranie to zwykle przypadkowe dwuklikniecie skrotu. */
 const MIN_RECORDING_MS = 350
-
-/**
- * Co pigulka mowi, gdy korekta sie nie odbyla. `null` znaczy "nic" — po wycieciu
- * wypelniaczy nie bylo czego poprawiac, wiec nie ma o czym informowac.
- * Wszystkie mieszcza sie w `PILL_MAX`.
- */
-const SKIP_NOTICE: Record<SkipReason, string | null> = {
-  'too-long': 'Za dlugi tekst — bez korekty',
-  'no-corrector': 'Brak modelu do korekty',
-  nothing: null
-}
-
-function noticeFor(correction: Correction): string | null {
-  if (correction.kind === 'corrected') return null
-  if (correction.kind === 'skipped') return SKIP_NOTICE[correction.reason]
-  return describe(correction.failure).message
-}
 
 /** Co odsyla okno recordera: nagranie albo powod, dla ktorego go nie ma. */
 export type Recording =
@@ -43,8 +23,6 @@ export interface DictationSettings {
   providerLabel: string
   model: string
   language: LanguageId
-  /** Przelacznik korekty z ustawien. */
-  cleanup: boolean
 }
 
 /**
@@ -68,17 +46,13 @@ export interface DictationHost {
   setError(error: FailureText | null): void
   setKeyHealth(provider: ProviderId, health: KeyHealth): void
   transcribe(provider: ProviderId, wav: Buffer, opts: TranscribeOptions): Promise<string>
-  /** Korekta tekstu. Nigdy nie rzuca — awaria wraca jako `Correction`. */
-  correct(text: string, speechMs: number): Promise<Correction>
-  /** Rozgrzewka polaczenia do korekty. Idzie w tle, nikt na nia nie czeka. */
-  warmCorrector(): void
   /**
    * Log transkryptow — zapis surowego tekstu. Zwraca `id` wpisu albo `null`, gdy log
    * jest wylaczony. Stoi obok dyktowania, wiec nie ma prawa rzucic ani opoznic.
    */
   logRaw(raw: string, speechMs: number): string | null
-  /** Domkniecie wpisu. `null` = korekta w ogole nie startowala. */
-  logDone(id: string, correction: Correction | null): void
+  /** Domkniecie wpisu z surowa transkrypcja. */
+  logDone(id: string): void
   paste(text: string): Promise<void>
   /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
   timer(ms: number, fn: () => void): () => void
@@ -130,7 +104,7 @@ export function createDictation(host: DictationHost): Dictation {
    * opoznialoby pojawienie sie pigulki, a to jedyne potwierdzenie, ze skrot zadzialal.
    */
   function start(): void {
-    const { provider, providerLabel, cleanup } = host.settings()
+    const { provider, providerLabel } = host.settings()
 
     if (!host.apiKey(provider)) {
       fail({ kind: 'no-key', provider: providerLabel })
@@ -147,8 +121,6 @@ export function createDictation(host: DictationHost): Dictation {
     host.showOverlay({ state: 'recording' })
     host.bindCancelKey(cancel)
     host.record('start')
-    // Uzgodnienie TCP i TLS biegnie rownolegle z mowieniem, wiec nie kosztuje czasu.
-    if (cleanup) host.warmCorrector()
   }
 
   function stop(): void {
@@ -163,7 +135,7 @@ export function createDictation(host: DictationHost): Dictation {
       stop()
       return
     }
-    // Transkrypcja i korekta nie sa przerywalne skrotem — drugie nacisniecie milczy.
+    // Transkrypcja nie jest przerywalna skrotem — drugie nacisniecie milczy.
     if (phase !== 'idle') return
     start()
   }
@@ -175,17 +147,6 @@ export function createDictation(host: DictationHost): Dictation {
     host.unbindCancelKey()
     host.record('cancel')
     host.hideOverlay()
-  }
-
-  /**
-   * Korekta nigdy nie zabiera tekstu — kazde jej niepowodzenie konczy sie wklejeniem
-   * wersji surowej. Dlatego nie idzie przez `fail()`, ktore tekst porzuca, i dlatego
-   * `host.correct()` nie ma prawa rzucic.
-   */
-  async function correct(text: string, speechMs: number): Promise<Correction> {
-    phase = 'correcting'
-    host.updateOverlay({ state: 'correcting' })
-    return host.correct(text, speechMs)
   }
 
   async function submit(recording: Recording): Promise<void> {
@@ -201,7 +162,7 @@ export function createDictation(host: DictationHost): Dictation {
       return
     }
 
-    const { provider, providerLabel, model, language, cleanup } = host.settings()
+    const { provider, providerLabel, model, language } = host.settings()
     const apiKey = host.apiKey(provider)
     if (!apiKey) {
       fail({ kind: 'no-key', provider: providerLabel })
@@ -227,25 +188,15 @@ export function createDictation(host: DictationHost): Dictation {
       // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
       host.setKeyHealth(provider, { state: 'ok' })
 
-      // Zapis surowego idzie **przed** korekta, wiec awaria w jej trakcie nie kasuje
-      // materialu. Wpis zaczyna sie dopiero tutaj: przerwana transkrypcja nie zostawia
-      // w logu niczego, bo nie ma jeszcze tekstu, ktory bylby czegokolwiek warty.
       const entry = host.logRaw(trimmed, recording.durationMs)
+      if (entry) host.logDone(entry)
 
-      const correction = cleanup ? await correct(trimmed, recording.durationMs) : null
-      // Domkniecie przed sprawdzeniem Esc — anulowane dyktowanie ma taki sam wpis jak
-      // kazde inne, a wpis niedomkniety nie nadaje sie do niczego.
-      if (entry) host.logDone(entry, correction)
-      // Esc w trakcie korekty: wynik jest juz niczyj, tak samo jak transkrypcja.
-      if (mine !== run) return
-
-      await host.paste(correction?.kind === 'corrected' ? correction.text : trimmed)
+      await host.paste(trimmed)
       phase = 'idle'
       host.setError(null)
 
-      const notice = correction && noticeFor(correction)
-      host.updateOverlay(notice ? { state: 'warning', message: notice } : { state: 'done' })
-      hideAfter(notice ? NOTICE_HIDE_MS : DONE_HIDE_MS)
+      host.updateOverlay({ state: 'done' })
+      hideAfter(DONE_HIDE_MS)
     } catch (err) {
       if (mine !== run) return
       const failure = toFailure(err)
