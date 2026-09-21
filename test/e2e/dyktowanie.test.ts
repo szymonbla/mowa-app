@@ -46,7 +46,13 @@ const stan = vi.hoisted(() => ({
   dom: '',
   userData: '',
   port: 0,
+  /** Historia `writeText` — co dyktowanie wpisalo do schowka, w kolejnosci. */
   schowek: [] as string[],
+  /**
+   * Biezaca zawartosc schowka. Osobno od historii, bo przywracanie pisze przez
+   * `clipboard.write`, a testy pytaja o dwie rozne rzeczy: co wpisano i co zostalo.
+   */
+  formaty: { text: '', html: '', rtf: '' },
   /** Wszystko, co poszlo do okien: `record:*` z recordera i `overlay:*` z pigulki. */
   wyslane: [] as { kanal: string; ladunek?: unknown }[],
   polecenia: [] as string[][],
@@ -126,7 +132,24 @@ vi.mock('electron', () => {
     clipboard: {
       writeText: (tekst: string): void => {
         stan.schowek.push(tekst)
-      }
+        stan.formaty = { text: tekst, html: '', rtf: '' }
+      },
+      write: (dane: { text?: string; html?: string; rtf?: string }): void => {
+        stan.formaty = { text: dane.text ?? '', html: dane.html ?? '', rtf: dane.rtf ?? '' }
+      },
+      availableFormats: (): string[] => {
+        const { text, html, rtf } = stan.formaty
+        return [
+          ...(text ? ['text/plain'] : []),
+          ...(html ? ['text/html'] : []),
+          ...(rtf ? ['text/rtf'] : [])
+        ]
+      },
+      readText: (): string => stan.formaty.text,
+      readHTML: (): string => stan.formaty.html,
+      readRTF: (): string => stan.formaty.rtf,
+      // Obrazu atrapa nie trzyma — `paste.ts` ma go wtedy pominac.
+      readImage: (): { isEmpty: () => boolean } => ({ isEmpty: () => true })
     },
     // Keychain przechodzi przez prawdziwy `settings.ts`, wiec klucz naprawde
     // przechodzi cykl zapis → szyfrowanie → odczyt.
@@ -212,6 +235,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   stan.schowek = []
+  stan.formaty = { text: '', html: '', rtf: '' }
   stan.wyslane = []
   stan.polecenia = []
   stan.zadania = []
@@ -431,5 +455,77 @@ describe('cala sciezka dyktowania', () => {
     await bieg
     expect(stan.schowek).toEqual([])
     await expect(stat(sciezkaLogu())).rejects.toThrow()
+  })
+})
+
+/**
+ * Schowek uzytkownika jest cudza wlasnoscia: dyktowanie pozycza go na jedno Cmd+V.
+ * Te testy pilnuja obu kierunkow — ze transkrypt jest tam w chwili wklejania
+ * i ze poprzednia zawartosc wraca, gdy wklejenie sie udalo.
+ */
+describe('schowek po wklejeniu', () => {
+  const POPRZEDNI = { text: 'https://sklep.example/koszyk', html: '<a href="#">koszyk</a>' }
+
+  /** Ustawia schowek tak, jak zostawil go uzytkownik przed dyktowaniem. */
+  function zajmijSchowek(): void {
+    stan.formaty = { ...POPRZEDNI, rtf: '' }
+  }
+
+  /** Dluzej niz RESTORE_DELAY_MS, zeby przywrocenie zdazylo sie wykonac. */
+  function poPrzywroceniu(): Promise<void> {
+    return czekaj(600)
+  }
+
+  it('wraca to, co bylo w schowku przed dyktowaniem', async () => {
+    const app = await uruchom()
+    zajmijSchowek()
+    await podyktuj(app)
+
+    // W chwili Cmd+V w schowku musi byc transkrypt — przywrocenie przychodzi pozniej.
+    expect(stan.schowek).toEqual([SUROWY])
+    await poPrzywroceniu()
+    expect(stan.formaty.text).toBe(POPRZEDNI.text)
+    expect(stan.formaty.html).toBe(POPRZEDNI.html)
+  })
+
+  it('po nieudanym wklejeniu transkrypt zostaje w schowku', async () => {
+    stan.osascriptBlad = { stderr: 'execution error: Not authorised to send Apple events (-1743)' }
+    const app = await uruchom()
+    zajmijSchowek()
+    await podyktuj(app)
+
+    // Komunikat obiecuje „tekst w schowku". Przywrocenie zabraloby jedyne wyjscie.
+    await poPrzywroceniu()
+    expect(stan.formaty.text).toBe(SUROWY)
+  })
+
+  it('wylaczone przywracanie zostawia transkrypt', async () => {
+    const app = await uruchom({ restoreClipboard: false })
+    zajmijSchowek()
+    await podyktuj(app)
+
+    await poPrzywroceniu()
+    expect(stan.formaty.text).toBe(SUROWY)
+  })
+
+  it('tryb tylko do schowka nie wysyla Cmd+V', async () => {
+    const app = await uruchom({ pasteMode: 'clipboard' })
+    zajmijSchowek()
+    await podyktuj(app)
+
+    expect(stan.schowek).toEqual([SUROWY])
+    expect(stan.polecenia.some(([plik]) => plik === 'osascript')).toBe(false)
+    expect(pigulka().at(-1)).toBe('done')
+    // Tutaj schowek jest produktem dyktowania — nie ma czego przywracac.
+    await poPrzywroceniu()
+    expect(stan.formaty.text).toBe(SUROWY)
+  })
+
+  it('pusty schowek nie jest przywracany', async () => {
+    const app = await uruchom()
+    await podyktuj(app)
+
+    await poPrzywroceniu()
+    expect(stan.formaty.text).toBe(SUROWY)
   })
 })

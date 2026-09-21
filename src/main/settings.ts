@@ -17,7 +17,9 @@ const DEFAULTS: Settings = {
   language: 'pl',
   launchAtLogin: false,
   transcripts: true,
-  agentContext: false
+  agentContext: false,
+  restoreClipboard: true,
+  pasteMode: 'paste'
 }
 
 let filePath = ''

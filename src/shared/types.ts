@@ -6,6 +6,9 @@ import type { ProviderId } from './providers.js'
 export type { ProviderId, ProviderMeta } from './providers.js'
 export type { LanguageId, SpokenLanguage } from './languages.js'
 
+/** Co dyktowanie robi z gotowym tekstem. 'clipboard' = bez Cmd+V, wklejasz sam. */
+export type PasteMode = 'paste' | 'clipboard'
+
 export interface Settings {
   shortcut: string
   provider: ProviderId
@@ -17,6 +20,9 @@ export interface Settings {
   transcripts: boolean
   /** Wlacza JEV tylko, gdy na wierzchu jest wybrana aplikacja agenta. */
   agentContext: boolean
+  /** Czy po udanym wklejeniu schowek wraca do poprzedniej zawartosci. */
+  restoreClipboard: boolean
+  pasteMode: PasteMode
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */

@@ -1,9 +1,11 @@
 import { clipboard, systemPreferences } from 'electron'
+import type { NativeImage } from 'electron'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { setAutomation } from './permissions.js'
 import { FailureError } from '../shared/failure.js'
 import type { Failure } from '../shared/failure.js'
+import type { PasteMode } from '../shared/types.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -11,6 +13,48 @@ const PASTE_SCRIPT = 'tell application "System Events" to keystroke "v" using co
 
 /** Monit TCC blokuje osascript, dopoki uzytkownik nie odpowie. */
 const PASTE_TIMEOUT_MS = 5000
+
+/**
+ * Ile czekamy po Cmd+V, zanim schowek wroci do wlasciciela. Wklejenie jest
+ * asynchroniczne — osascript wraca, gdy zdarzenie poszlo, nie gdy aplikacja je
+ * obsluzyla. Za krotki odstep oddaje schowek, zanim tekst z niego wyjdzie.
+ */
+const RESTORE_DELAY_MS = 400
+
+export interface PasteOptions {
+  mode: PasteMode
+  /** Czy po udanym Cmd+V oddac schowek temu, co bylo w nim wczesniej. */
+  restore: boolean
+}
+
+/** Zawartosc schowka w formatach, ktore da sie odlozyc z powrotem. */
+type Snapshot = Pick<Electron.Data, 'text' | 'html' | 'rtf'> & { image?: NativeImage }
+
+/**
+ * Formaty, ktorych `clipboard.write` nie odtworzy. Plik skopiowany w Finderze wroci
+ * jako sciezka w tekscie, a to nie jest ten sam schowek — wtedy lepiej nie ruszac go
+ * wcale. Tak samo ustalono w specyfikacji: listy plikow nie przywracamy.
+ */
+const FILE_FORMATS = ['public.file-url', 'NSFilenamesPboardType']
+
+/**
+ * Zdjecie schowka sprzed wklejenia. Null = nie ma czego przywracac: schowek jest
+ * pusty albo trzyma cos, czego nie umiemy odlozyc z powrotem.
+ */
+function snapshot(): Snapshot | null {
+  const formats = clipboard.availableFormats()
+  if (formats.length === 0) return null
+  if (formats.some((format) => FILE_FORMATS.includes(format))) return null
+
+  const image = clipboard.readImage()
+  const snap: Snapshot = {
+    text: clipboard.readText() || undefined,
+    html: clipboard.readHTML() || undefined,
+    rtf: clipboard.readRTF() || undefined,
+    image: image.isEmpty() ? undefined : image
+  }
+  return Object.values(snap).some((value) => value !== undefined) ? snap : null
+}
 
 type PasteFailure = Extract<Failure, { kind: 'paste' }>
 
@@ -38,14 +82,21 @@ function pasteFailure(err: unknown): PasteFailure {
 }
 
 /**
- * Zapisuje tekst do schowka i wysyla Cmd+V do aktywnej aplikacji.
- * Poprzednia zawartosc schowka nie jest przywracana — tak ustalono.
+ * Zapisuje tekst do schowka i wysyla Cmd+V do aktywnej aplikacji, a potem oddaje
+ * schowek temu, co bylo w nim wczesniej.
  *
  * Schowek zapisujemy przed kazdym sprawdzeniem, zeby awaria wklejania nie kosztowala
  * transkrypcji.
  */
-export async function pasteText(text: string): Promise<void> {
+export async function pasteText(text: string, opts: PasteOptions): Promise<void> {
+  // Zdjecie musi powstac przed zapisem — po nim nie ma juz czego czytac.
+  const previous = opts.restore && opts.mode === 'paste' ? snapshot() : null
+
   clipboard.writeText(text)
+
+  // Tryb tylko do schowka konczy sie tutaj: bez Cmd+V nie ma po co pytac o zgody,
+  // a przywracac nie ma czego — schowek jest calym produktem dyktowania.
+  if (opts.mode === 'clipboard') return
 
   if (!systemPreferences.isTrustedAccessibilityClient(false)) {
     throw new FailureError({ kind: 'paste', reason: 'accessibility' })
@@ -64,4 +115,13 @@ export async function pasteText(text: string): Promise<void> {
   }
 
   setAutomation('granted')
+
+  /*
+   * Tylko udane Cmd+V znaczy, ze tekst doszedl na miejsce. Po awarii transkrypt
+   * zostaje w schowku, bo dokladnie to obiecuje kazdy komunikat bledu wklejania.
+   *
+   * Na przywrocenie nie czekamy: dyktowanie jest skonczone, pigulka ma zniknac,
+   * a schowek wraca w tle.
+   */
+  if (previous) setTimeout(() => clipboard.write(previous), RESTORE_DELAY_MS)
 }

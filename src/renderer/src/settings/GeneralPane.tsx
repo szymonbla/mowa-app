@@ -127,6 +127,50 @@ export function GeneralPane({
         </div>
       </div>
 
+      <div className="group-title">Wklejanie</div>
+
+      <div className="card">
+        <div className="row">
+          <Glyph name="text" />
+          <div className="row-main">
+            <div className="row-title">Przywracaj schowek po wklejeniu</div>
+            <div className="row-desc">
+              Po Cmd+V wraca to, co bylo w schowku wczesniej. Listy plikow z Findera nie wracaja.
+            </div>
+          </div>
+          <div className="row-tail">
+            <button
+              className="switch"
+              data-on={settings.restoreClipboard}
+              role="switch"
+              aria-checked={settings.restoreClipboard}
+              aria-label="Przywracaj schowek po wklejeniu"
+              onClick={() => onPatch({ restoreClipboard: !settings.restoreClipboard })}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          <Glyph name="lock" />
+          <div className="row-main">
+            <div className="row-title">Tylko do schowka</div>
+            <div className="row-desc">Bez Cmd+V. Wklejasz sam, kiedy chcesz.</div>
+          </div>
+          <div className="row-tail">
+            <button
+              className="switch"
+              data-on={settings.pasteMode === 'clipboard'}
+              role="switch"
+              aria-checked={settings.pasteMode === 'clipboard'}
+              aria-label="Tylko do schowka"
+              onClick={() =>
+                onPatch({ pasteMode: settings.pasteMode === 'clipboard' ? 'paste' : 'clipboard' })
+              }
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="group-title">Transkrypty</div>
 
       <div className="card">

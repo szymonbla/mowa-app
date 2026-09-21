@@ -68,7 +68,11 @@ const host: DictationHost = {
     log.write(raw, getSettings().language, speechMs, agent)
     rememberLastDictation()
   },
-  paste: pasteText,
+  paste(text) {
+    // Oba przelaczniki czytamy przy kazdym wklejeniu — zmiana dziala bez restartu.
+    const { pasteMode, restoreClipboard } = getSettings()
+    return pasteText(text, { mode: pasteMode, restore: restoreClipboard })
+  },
   setRetryAvailable(available) {
     if (retryAvailable === available) return
     retryAvailable = available
