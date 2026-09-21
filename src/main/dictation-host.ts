@@ -3,15 +3,13 @@ import type { DictationHost } from './dictation.js'
 import { transcribe } from './providers/index.js'
 import { appendLine, createTranscriptLog } from './transcripts.js'
 import { providerLabel } from '../shared/providers.js'
-import { getApiKey, getModel, getSettings } from './settings.js'
+import { getApiKey, getModel, getOpenRouterKey, getSettings } from './settings.js'
 import { pasteText, undoPaste } from './paste.js'
 import { getPermissions, requestMicrophone } from './permissions.js'
 import { setError, setKeyHealth } from './status.js'
 import { getRecorderWindow, hideOverlay, showOverlay, updateOverlay } from './windows.js'
 import { bindCancelKey, unbindCancelKey } from './shortcut.js'
-import { classifyAgentContext } from './agent-context.js'
-import { getOpenRouterKey } from './settings.js'
-import { frontmostIsAgent } from './agent-app.js'
+import { refine as refineText } from './refine.js'
 import { markLastDictation, rememberLastDictation } from './feedback.js'
 import type { ShortcutName } from '../shared/types.js'
 
@@ -39,13 +37,12 @@ export function trayActions(): { retry: boolean; pasteLast: boolean } {
 /** Adapter na Electron. Drugi adapter tej samej krawedzi — pamieciowy — zyje w testach. */
 const host: DictationHost = {
   settings() {
-    const { provider, language, agentContext } = getSettings()
+    const { provider, language } = getSettings()
     return {
       provider,
       providerLabel: providerLabel(provider),
       model: getModel(provider),
-      language,
-      agentContext
+      language
     }
   },
   apiKey: getApiKey,
@@ -60,13 +57,18 @@ const host: DictationHost = {
   setError,
   setKeyHealth,
   transcribe,
-  agentContext: async (text) => {
-    if (!(await frontmostIsAgent())) return null
-    const key = getOpenRouterKey()
-    return key ? classifyAgentContext(text, key) : null
+  refine: (text) => {
+    const { textCorrection, correctionModel, vocabulary, replacements } = getSettings()
+    return refineText(text, {
+      correction: textCorrection,
+      apiKey: getOpenRouterKey(),
+      model: correctionModel,
+      vocabulary,
+      replacements
+    })
   },
-  log: (raw, speechMs, agent) => {
-    log.write(raw, getSettings().language, speechMs, agent)
+  log: (raw, speechMs, correction) => {
+    log.write(raw, getSettings().language, speechMs, correction)
     rememberLastDictation()
   },
   paste(text) {

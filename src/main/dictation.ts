@@ -4,7 +4,7 @@ import { hasSpeech } from '../shared/wav.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
 import type { TranscribeOptions } from './providers/index.js'
-import type { AgentContext, AgentContextLog } from './agent-context.js'
+import type { CorrectionLog } from './text-correction.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
 
@@ -36,7 +36,6 @@ export interface DictationSettings {
   providerLabel: string
   model: string
   language: LanguageId
-  agentContext: boolean
 }
 
 /**
@@ -60,12 +59,13 @@ export interface DictationHost {
   setError(error: FailureText | null): void
   setKeyHealth(provider: ProviderId, health: KeyHealth): void
   transcribe(provider: ProviderId, wav: Buffer, opts: TranscribeOptions): Promise<string>
-  agentContext(text: string): Promise<AgentContext | null>
+  /** Zamiany i korekta AI. Zwraca tekst do wklejenia, nawet gdy korekta padla. */
+  refine(text: string): Promise<{ text: string; log: CorrectionLog }>
   /**
    * Log transkryptow — zapis surowego tekstu. Stoi obok dyktowania, wiec nie ma
    * prawa rzucic ani opoznic wklejenia.
    */
-  log(raw: string, speechMs: number, agent?: AgentContextLog): void
+  log(raw: string, speechMs: number, correction: CorrectionLog): void
   paste(text: string): Promise<void>
   /** Cmd+Z do aktywnej aplikacji. Cofa wklejenie, ktore wlasnie poszlo. */
   undoPaste(): Promise<void>
@@ -311,7 +311,7 @@ export function createDictation(host: DictationHost): Dictation {
   }
 
   /**
-   * Wszystko po nagraniu: transkrypcja → JEV → log → wklejenie. Osobno od `submit()`,
+   * Wszystko po nagraniu: transkrypcja → korekta → log → wklejenie. Osobno od `submit()`,
    * bo powtorka wchodzi dokladnie tutaj — z tym samym nagraniem i bez progow.
    */
   async function process(recording: { wav: Buffer; durationMs: number }): Promise<void> {
@@ -341,18 +341,21 @@ export function createDictation(host: DictationHost): Dictation {
       // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
       host.setKeyHealth(provider, { state: 'ok' })
 
-      const agent = await agentText(trimmed)
-      host.log(trimmed, recording.durationMs, agent.log)
-      await host.paste(agent.text)
+      const refined = await refineText(trimmed)
+      // Esc w trakcie korekty: tekst modelu jest niczyj tak samo jak spozniony transkrypt.
+      if (mine !== run) return
+
+      host.log(trimmed, recording.durationMs, refined.log)
+      await host.paste(refined.text)
       phase = 'idle'
       // Tekst doszedl: nie ma juz czego powtarzac, ale jest co cofnac i co wkleic.
       forgetPending()
-      lastText = agent.text
+      lastText = refined.text
       lastPasteAt = host.now()
       setActions({ retry: false, pasteLast: true })
       host.setError(null)
 
-      host.updateOverlay({ state: 'done', agentQuality: agent.context?.quality })
+      host.updateOverlay({ state: 'done' })
       hideAfter(DONE_HIDE_MS)
     } catch (err) {
       if (mine !== run) return
@@ -379,17 +382,13 @@ export function createDictation(host: DictationHost): Dictation {
     }
   }
 
-  async function agentText(
-    text: string
-  ): Promise<{ text: string; context: AgentContext | null; log?: AgentContextLog }> {
-    if (!host.settings().agentContext) return { text, context: null }
+  /** Korekta stoi obok dyktowania: cokolwiek sie z nia stanie, wklejamy tekst sprzed niej. */
+  async function refineText(text: string): Promise<{ text: string; log: CorrectionLog }> {
     try {
-      const context = await host.agentContext(text)
-      if (!context) return { text, context: null, log: { status: 'unavailable' } }
-      return { text, context, log: { status: 'classified', ...context } }
+      return await host.refine(text)
     } catch (err) {
       const reason = err instanceof Error ? err.message.slice(0, 240) : 'unknown error'
-      return { text, context: null, log: { status: 'failed', reason } }
+      return { text, log: { status: 'unavailable', stage: 'correct', reason } }
     }
   }
 

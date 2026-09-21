@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { OverlayPayload } from '../../../shared/types.js'
+import { formatRecordingTime } from '../../../shared/recording-time.js'
 
 /** Szerokosc slupka i odstep. Musza zgadzac sie z overlay.css. */
 const BAR_W = 2
@@ -37,6 +38,8 @@ export function Overlay(): React.JSX.Element | null {
   /** Szczyt glosnosci od ostatniej kolumny. Szczyt, nie srednia — transjenty zostaja ostre. */
   const peak = useRef(0)
   const live = useRef(false)
+  const recordingStartedAt = useRef<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState(0)
 
   useEffect(() => {
     /** Stan bramki szumu. Trzymany tutaj, bo zmienia sie tylko w tej petli. */
@@ -64,6 +67,8 @@ export function Overlay(): React.JSX.Element | null {
     window.overlay.onState((next) => {
       setPayload(next)
       if (next.state === 'recording') {
+        recordingStartedAt.current = performance.now()
+        setElapsedMs(0)
         cols.current.fill(0)
         peak.current = 0
         gateOpen = false
@@ -71,7 +76,10 @@ export function Overlay(): React.JSX.Element | null {
         paint()
       }
       // Poza nagrywaniem sciezka zamiera — CSS pulsuje wtedy przezroczystoscia.
-      if (next.state !== 'recording') live.current = false
+      if (next.state !== 'recording') {
+        recordingStartedAt.current = null
+        live.current = false
+      }
     })
 
     window.overlay.onLevel((rms) => {
@@ -105,8 +113,17 @@ export function Overlay(): React.JSX.Element | null {
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (recordingStartedAt.current !== null) {
+        setElapsedMs(performance.now() - recordingStartedAt.current)
+      }
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
+
   if (!payload) return null
-  const { state, message, agentQuality } = payload
+  const { state, message } = payload
 
   if (state === 'error') {
     return (
@@ -135,8 +152,10 @@ export function Overlay(): React.JSX.Element | null {
           ))}
         </div>
       </div>
+      {state === 'recording' && (
+        <span className="recording-time">{formatRecordingTime(elapsedMs)}</span>
+      )}
       {note && <span className="note">{note}</span>}
-      {state === 'done' && agentQuality && <span className={`agent-dot ${agentQuality}`} />}
     </div>
   )
 }

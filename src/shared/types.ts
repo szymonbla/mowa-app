@@ -12,6 +12,12 @@ export type ShortcutName = 'dictate' | 'redo'
 /** Co dyktowanie robi z gotowym tekstem. 'clipboard' = bez Cmd+V, wklejasz sam. */
 export type PasteMode = 'paste' | 'clipboard'
 
+/** Jedna celowa zamiana po transkrypcji. To nie jest regex ani instrukcja dla AI. */
+export interface Replacement {
+  from: string
+  to: string
+}
+
 export interface Settings {
   shortcut: string
   /** Cofa ostatnie wklejenie przez Cmd+Z i od razu nagrywa od nowa. */
@@ -23,8 +29,14 @@ export interface Settings {
   launchAtLogin: boolean
   /** Opcjonalny zapis surowych transkrypcji na dysku. */
   transcripts: boolean
-  /** Wlacza JEV tylko, gdy na wierzchu jest wybrana aplikacja agenta. */
-  agentContext: boolean
+  /** Wysyla tekst do korekty przed wklejeniem. Awaria zawsze zostawia surowy tekst. */
+  textCorrection: boolean
+  /** Model OpenRouter do korekty. Wlasny wybor, bo koszt i styl sa decyzja uzytkownika. */
+  correctionModel: string
+  /** Nazwy i terminy przekazywane do STT oraz chronione podczas korekty AI. */
+  vocabulary: string[]
+  /** Pewne, lokalne poprawki stosowane po STT i po korekcie AI. */
+  replacements: Replacement[]
   /** Czy po udanym wklejeniu schowek wraca do poprzedniej zawartosci. */
   restoreClipboard: boolean
   pasteMode: PasteMode
@@ -41,7 +53,6 @@ export type OverlayState = 'recording' | 'transcribing' | 'done' | 'error'
 export interface OverlayPayload {
   state: OverlayState
   message?: string
-  agentQuality?: 'clear' | 'uncertain' | 'mixed-language'
 }
 
 /**

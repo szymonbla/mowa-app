@@ -4,7 +4,7 @@ import type { Dictation, DictationHost } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
-import type { AgentContext } from '../src/main/agent-context.js'
+import type { CorrectionLog } from '../src/main/text-correction.js'
 import { encodeWav, silentWav } from '../src/shared/wav.js'
 
 interface Timer {
@@ -42,13 +42,14 @@ interface Fake {
   apiKey: string | null
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
-  agentContext: boolean
-  classified: AgentContext | null
   /** Przelacznik logu — wlasny, tak samo jak w ustawieniach. */
   transcripts: boolean
   /** Co trafilo do logu transkryptow, w kolejnosci. */
   log: string[]
+  /** Los korekty zapisany przy kazdym wpisie logu. */
+  corrections: CorrectionLog[]
   transcribe: () => Promise<string>
+  refine: (text: string) => Promise<{ text: string; log: CorrectionLog }>
   /** Ostatnie zaplanowane odliczanie pigulki. */
   lastTimer(): Timer
 }
@@ -73,11 +74,11 @@ function fake(): Fake {
     apiKey: 'sk-test',
     micGranted: true,
     language: 'pl',
-    agentContext: false,
-    classified: null,
     transcripts: true,
     log: [],
+    corrections: [],
     transcribe: () => Promise.resolve('Dzien dobry'),
+    refine: (text) => Promise.resolve({ text, log: { status: 'off' } }),
     lastTimer: () => f.timers[f.timers.length - 1]
   }
 
@@ -86,8 +87,7 @@ function fake(): Fake {
       provider: 'xai',
       providerLabel: 'xAI Grok',
       model: '',
-      language: f.language,
-      agentContext: f.agentContext
+      language: f.language
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
@@ -119,10 +119,11 @@ function fake(): Fake {
       f.health.push({ provider, health })
     },
     transcribe: () => f.transcribe(),
-    agentContext: () => Promise.resolve(f.classified),
-    log: (raw) => {
+    refine: (text) => f.refine(text),
+    log: (raw, _speechMs, correction) => {
       if (!f.transcripts) return
       f.log.push(raw)
+      f.corrections.push(correction)
     },
     paste: (text) => {
       f.pasted.push(text)
@@ -166,6 +167,13 @@ function recorded(f: Fake): Dictation {
 
 function lastOverlay(f: Fake): OverlayPayload {
   return f.overlay[f.overlay.length - 1]
+}
+
+/** Udane dyktowanie od skrotu do wklejenia. */
+async function pastedOnce(f: Fake): Promise<Dictation> {
+  const dictation = recorded(f)
+  await dictation.submit(audio())
+  return dictation
 }
 
 suite('dyktowanie', () => {
@@ -258,17 +266,6 @@ suite('dyktowanie', () => {
     expect(f.errors[f.errors.length - 1]).toBeNull()
     expect(f.health).toEqual([{ provider: 'xai', health: { state: 'ok' } }])
     expect(lastOverlay(f)).toEqual({ state: 'done' })
-  })
-
-  it('w trybie agenta zachowuje dyktowany tekst i pokazuje status tylko w pigulce', async () => {
-    const f = fake()
-    f.agentContext = true
-    f.classified = { intent: 'change', quality: 'mixed-language' }
-
-    await recorded(f).submit(audio())
-
-    expect(f.pasted).toEqual(['Dzien dobry'])
-    expect(lastOverlay(f)).toEqual({ state: 'done', agentQuality: 'mixed-language' })
   })
 
   it('jezyk auto idzie do dostawcy jako brak jezyka', async () => {
@@ -416,6 +413,60 @@ suite('log transkryptow w sciezce dyktowania', () => {
   })
 })
 
+suite('korekta tekstu w sciezce dyktowania', () => {
+  it('wkleja tekst po korekcie, a do logu idzie surowy transkrypt', async () => {
+    const f = fake()
+    const log: CorrectionLog = {
+      status: 'applied',
+      noul: 0.91,
+      model: 'typesafe/jev-1.13',
+      ms: 120
+    }
+    f.refine = (text) => Promise.resolve({ text: `${text}.`, log })
+
+    const dictation = await pastedOnce(f)
+    await dictation.pasteLast()
+
+    expect(f.pasted).toEqual(['Dzien dobry.', 'Dzien dobry.'])
+    expect(f.log).toEqual(['Dzien dobry'])
+    expect(f.corrections).toEqual([log])
+  })
+
+  it('awaria korekty wkleja tekst z transkrypcji', async () => {
+    const f = fake()
+    f.refine = () => Promise.reject(new Error('OpenRouter padl'))
+
+    await pastedOnce(f)
+
+    expect(f.pasted).toEqual(['Dzien dobry'])
+    expect(f.corrections).toEqual([
+      { status: 'unavailable', stage: 'correct', reason: 'OpenRouter padl' }
+    ])
+    expect(lastOverlay(f)).toEqual({ state: 'done' })
+  })
+
+  it('Esc w trakcie korekty nie wkleja niczego', async () => {
+    const f = fake()
+    let finish = (_result: { text: string; log: CorrectionLog }): void => {}
+    let entered = (): void => {}
+    const inCorrection = new Promise<void>((resolve) => (entered = resolve))
+    f.refine = () => {
+      entered()
+      return new Promise((resolve) => (finish = resolve))
+    }
+
+    const dictation = recorded(f)
+    const pending = dictation.submit(audio())
+    await inCorrection
+    dictation.cancel()
+    finish({ text: 'Dzien dobry.', log: { status: 'unchanged' } })
+    await pending
+
+    expect(f.pasted).toEqual([])
+    expect(f.log).toEqual([])
+  })
+})
+
 suite('powtorka po awarii dostawcy', () => {
   const network = (): Promise<string> => Promise.reject(new TypeError('fetch failed'))
 
@@ -543,16 +594,9 @@ suite('powtorka po awarii dostawcy', () => {
  * Okno 15 s jest tu cala trescia — poza nim ten sam skrot to zwykle dyktowanie.
  */
 suite('cofnij i powtorz', () => {
-  /** Udane dyktowanie. Stan wyjsciowy dla `redo()` i `pasteLast()`. */
-  async function pasted(f: Fake): Promise<Dictation> {
-    const dictation = recorded(f)
-    await dictation.submit(audio())
-    return dictation
-  }
-
   it('w oknie po wklejeniu cofa, zglasza bledne i nagrywa od nowa', async () => {
     const f = fake()
-    const dictation = await pasted(f)
+    const dictation = await pastedOnce(f)
 
     f.now += 3000
     await dictation.redo()
@@ -565,7 +609,7 @@ suite('cofnij i powtorz', () => {
 
   it('po oknie 15 s nie cofa niczego, tylko nagrywa', async () => {
     const f = fake()
-    const dictation = await pasted(f)
+    const dictation = await pastedOnce(f)
 
     f.now += 15_001
     await dictation.redo()
@@ -599,7 +643,7 @@ suite('cofnij i powtorz', () => {
 
   it('nieudane Cmd+Z melduje blad, ale nagranie i tak startuje', async () => {
     const f = fake()
-    const dictation = await pasted(f)
+    const dictation = await pastedOnce(f)
     f.undoPaste = () => Promise.reject(new FailureError({ kind: 'paste', reason: 'accessibility' }))
 
     await dictation.redo()
@@ -611,7 +655,7 @@ suite('cofnij i powtorz', () => {
 
   it('drugie cofniecie tego samego wklejenia nie rusza juz cudzego tekstu', async () => {
     const f = fake()
-    const dictation = await pasted(f)
+    const dictation = await pastedOnce(f)
 
     f.now += 2000
     await dictation.redo()
@@ -628,7 +672,7 @@ suite('cofnij i powtorz', () => {
 
   it('wkleja ostatni tekst jeszcze raz', async () => {
     const f = fake()
-    const dictation = await pasted(f)
+    const dictation = await pastedOnce(f)
 
     await dictation.pasteLast()
 
@@ -648,7 +692,7 @@ suite('cofnij i powtorz', () => {
 
   it('po udanym wklejeniu tray ma czynne „Wklej ostatni tekst"', async () => {
     const f = fake()
-    await pasted(f)
+    await pastedOnce(f)
 
     expect(f.actions.at(-1)).toEqual({ retry: false, pasteLast: true })
   })

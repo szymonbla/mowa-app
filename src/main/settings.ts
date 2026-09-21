@@ -18,7 +18,10 @@ const DEFAULTS: Settings = {
   language: 'pl',
   launchAtLogin: false,
   transcripts: true,
-  agentContext: false,
+  textCorrection: false,
+  correctionModel: 'openai/gpt-4o-mini',
+  vocabulary: [],
+  replacements: [],
   restoreClipboard: true,
   pasteMode: 'paste'
 }
@@ -29,21 +32,38 @@ let store: StoreFile = { ...DEFAULTS, apiKeys: {} }
 export function initSettings(): void {
   filePath = join(app.getPath('userData'), 'settings.json')
   try {
-    // Migracja: `cleanup` to klucz po usunietej korekcie wypowiedzi. Odrzucamy go,
-    // zeby stary plik ustawien nie wracal na dysk z martwym polem.
-    const { cleanup: _cleanup, ...raw } = JSON.parse(
+    // `agentContext` i `cleanup` byly eksperymentami, ktore nie zmienialy tekstu.
+    // Nie odtwarzamy ich przy zapisie, zeby ustawienia nie pokazywaly martwych opcji.
+    const { cleanup: _cleanup, agentContext: _agentContext, ...raw } = JSON.parse(
       readFileSync(filePath, 'utf8')
-    ) as Partial<StoreFile> & { cleanup?: unknown }
+    ) as Partial<StoreFile> & { cleanup?: unknown; agentContext?: unknown }
     store = {
       ...DEFAULTS,
       ...raw,
       models: { ...DEFAULTS.models, ...(raw.models ?? {}) },
+      vocabulary: Array.isArray(raw.vocabulary) ? raw.vocabulary.filter(isText) : [],
+      replacements: Array.isArray(raw.replacements)
+        ? raw.replacements.filter(isReplacement)
+        : [],
       apiKeys: raw.apiKeys ?? {}
     }
   } catch {
     // Pierwsze uruchomienie albo uszkodzony plik. Zostajemy na domyslnych.
     store = { ...DEFAULTS, apiKeys: {} }
   }
+}
+
+function isText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isReplacement(value: unknown): value is { from: string; to: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    isText((value as { from?: unknown }).from) &&
+    typeof (value as { to?: unknown }).to === 'string'
+  )
 }
 
 function persist(): void {

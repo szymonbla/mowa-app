@@ -4,7 +4,7 @@ import { appendFile, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { LanguageId } from '../shared/types.js'
-import type { AgentContextLog } from './agent-context.js'
+import type { CorrectionLog } from './text-correction.js'
 
 /**
  * Log transkryptow. Nie jest zrodlem odzyskiwania — tym jest zmienna w pamieci procesu
@@ -29,7 +29,7 @@ export interface Line {
   lang: LanguageId
   speechMs: number
   raw: string
-  agent?: AgentContextLog
+  correction?: CorrectionLog
 }
 
 export interface LogDeps {
@@ -40,21 +40,21 @@ export interface LogDeps {
 }
 
 export interface TranscriptLog {
-  write(raw: string, lang: LanguageId, speechMs: number, agent?: AgentContextLog): void
+  write(raw: string, lang: LanguageId, speechMs: number, correction?: CorrectionLog): void
 }
 
 export function createTranscriptLog(deps: LogDeps): TranscriptLog {
   const now = deps.now ?? ((): Date => new Date())
 
   return {
-    write(raw, lang, speechMs, agent) {
+    write(raw, lang, speechMs, correction) {
       if (!deps.enabled()) return
       const entry: Line = {
         t: now().toISOString(),
         lang,
         speechMs: Math.round(speechMs),
         raw,
-        ...(agent ? { agent } : {})
+        ...(correction ? { correction } : {})
       }
       try {
         deps.append(`${JSON.stringify(entry)}\n`)

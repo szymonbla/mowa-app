@@ -67,24 +67,44 @@ export function GeneralPane({
         </div>
       </div>
 
-      <div className="group-title">Kontekst dla agenta</div>
+      <div className="group-title">Korekta tekstu</div>
 
       <div className="card">
         <div className="row">
           <Glyph name="sparkle" />
           <div className="row-main">
-            <div className="row-title">Dodawaj status do dyktowania</div>
+            <div className="row-title">Poprawiaj tekst przed wklejeniem</div>
             <div className="row-desc">
-              JEV oznacza tekst jako zmianę, pytanie, pomysł albo notatkę.
+              AI poprawia interpunkcje i przejezyczenia, nie sens. Zmiana, ktora rusza tresc,
+              zostaje odrzucona, a awaria zostawia tekst z dyktowania.
             </div>
           </div>
           <div className="row-tail">
             <button
               className="switch"
-              data-on={settings.agentContext}
+              data-on={settings.textCorrection}
               role="switch"
-              aria-checked={settings.agentContext}
-              onClick={() => onPatch({ agentContext: !settings.agentContext })}
+              aria-checked={settings.textCorrection}
+              aria-label="Poprawiaj tekst przed wklejeniem"
+              onClick={() => onPatch({ textCorrection: !settings.textCorrection })}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          <Glyph name="sliders" />
+          <div className="row-main">
+            <div className="row-title">Model do korekty</div>
+            <div className="row-desc">
+              Ile to kosztuje i jak poprawia, zalezy od wybranego modelu.
+            </div>
+          </div>
+          <div className="row-tail">
+            <input
+              type="text"
+              value={settings.correctionModel}
+              aria-label="Model do korekty"
+              onChange={(e) => onPatch({ correctionModel: e.target.value })}
             />
           </div>
         </div>
