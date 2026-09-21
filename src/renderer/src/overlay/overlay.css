@@ -105,6 +105,23 @@ body,
   background: #e8c547;
 }
 
+.agent-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+}
+
+.agent-dot.clear {
+  background: #69b578;
+}
+.agent-dot.uncertain {
+  background: #e8c547;
+}
+.agent-dot.mixed-language {
+  background: #7ca6db;
+}
+
 /*
  * Komunikat bledu bywa zdaniem, nie slowem. Bez lamania wystawal poza okno
  * (220 px) i widac bylo jego srodek — pigulka rosnie w gore zamiast w bok.

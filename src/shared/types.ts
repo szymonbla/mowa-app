@@ -30,6 +30,7 @@ export type OverlayState = 'recording' | 'transcribing' | 'done' | 'error'
 export interface OverlayPayload {
   state: OverlayState
   message?: string
+  agentQuality?: 'clear' | 'uncertain' | 'mixed-language'
 }
 
 /**

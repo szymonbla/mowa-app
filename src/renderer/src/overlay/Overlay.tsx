@@ -106,7 +106,7 @@ export function Overlay(): React.JSX.Element | null {
   }, [])
 
   if (!payload) return null
-  const { state, message } = payload
+  const { state, message, agentQuality } = payload
 
   if (state === 'error') {
     return (
@@ -132,6 +132,7 @@ export function Overlay(): React.JSX.Element | null {
           ))}
         </div>
       </div>
+      {state === 'done' && agentQuality && <span className={`agent-dot ${agentQuality}`} />}
     </div>
   )
 }

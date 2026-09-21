@@ -191,11 +191,12 @@ export function createDictation(host: DictationHost): Dictation {
 
       host.log(trimmed, recording.durationMs)
 
-      await host.paste(await agentText(trimmed))
+      const agent = await agentText(trimmed)
+      await host.paste(agent.text)
       phase = 'idle'
       host.setError(null)
 
-      host.updateOverlay({ state: 'done' })
+      host.updateOverlay({ state: 'done', agentQuality: agent.context?.quality })
       hideAfter(DONE_HIDE_MS)
     } catch (err) {
       if (mine !== run) return
@@ -208,13 +209,16 @@ export function createDictation(host: DictationHost): Dictation {
     }
   }
 
-  async function agentText(text: string): Promise<string> {
-    if (!host.settings().agentContext) return text
+  async function agentText(text: string): Promise<{ text: string; context: AgentContext | null }> {
+    if (!host.settings().agentContext) return { text, context: null }
     try {
       const context = await host.agentContext(text)
-      return context ? `[voice: ${context.intent} | ${context.quality}]\n\n${text}` : text
+      return {
+        text: context ? `[voice: ${context.intent} | ${context.quality}]\n\n${text}` : text,
+        context
+      }
     } catch {
-      return text
+      return { text, context: null }
     }
   }
 
