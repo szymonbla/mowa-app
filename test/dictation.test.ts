@@ -609,6 +609,23 @@ suite('cofnij i powtorz', () => {
     expect(f.commands.at(-1)).toBe('start')
   })
 
+  it('drugie cofniecie tego samego wklejenia nie rusza juz cudzego tekstu', async () => {
+    const f = fake()
+    const dictation = await pasted(f)
+
+    f.now += 2000
+    await dictation.redo()
+    // Uzytkownik rezygnuje z nagrania. Wklejenie jest juz cofniete.
+    dictation.cancel()
+
+    f.now += 3000
+    await dictation.redo()
+
+    expect(f.undos).toBe(1)
+    expect(f.verdicts).toEqual(['bad'])
+    expect(f.commands.at(-1)).toBe('start')
+  })
+
   it('wkleja ostatni tekst jeszcze raz', async () => {
     const f = fake()
     const dictation = await pasted(f)

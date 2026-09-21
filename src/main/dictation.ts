@@ -254,6 +254,12 @@ export function createDictation(host: DictationHost): Dictation {
       // nagranie startuje tak samo: uzytkownik juz zaczyna mowic.
       host.setError(describe(toFailure(err)))
     }
+    /*
+     * Jedno wklejenie cofa sie raz. Po probie — takze nieudanej — nie wiemy, co jest
+     * na ekranie, a drugie Cmd+Z cofnelo by nie nasze wklejenie, tylko cudzy tekst.
+     * `lastText` zostaje: „Wklej ostatni tekst" nadal ma co wkleic.
+     */
+    lastPasteAt = null
     host.feedback('bad')
     start()
   }
