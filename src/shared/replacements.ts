@@ -30,7 +30,12 @@ export function applyReplacements(text: string, rules: readonly Replacement[]): 
   return result
 }
 
-function nextWholeWord(text: string, phrase: string, from: number): number | null {
+/**
+ * Pierwsze wystapienie `phrase` w `text` od pozycji `from`, ograniczone do
+ * calego slowa. Eksportowane, bo skaner kandydatow w `scripts/corpus.ts` musi
+ * pytac o dokladnie te same dopasowania, ktore wykona zamiana.
+ */
+export function nextWholeWord(text: string, phrase: string, from: number): number | null {
   const matcher = new RegExp(escapeRegExp(phrase), 'giu')
   matcher.lastIndex = from
   for (let match = matcher.exec(text); match; match = matcher.exec(text)) {

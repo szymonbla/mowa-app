@@ -92,3 +92,70 @@ in settings would have posted `model: ''` to OpenRouter, so a blank model now sh
 The `vetoed` by `jev` variant records `model` and `noul` but no `ms`, so a vetoed correction's
 latency is invisible. Harmless until you start measuring the 700 ms ceiling.
 
+## 2026-09-21 - impl - J2a - korpus kandydatow
+
+### Dla Szymona
+
+Zeskanowalem Twoj log i J2 w obecnym ksztalcie nie zarabia na siebie. Dzisiejsza zamiana calego
+slowa nie popsula w 314 transkryptach **ani jednego zdania** - czyli arbiter nie ma czego ratowac.
+Za to ta sama zamiana **nie widzi 19 z 30** miejsc, gdzie chcialbys poprawki, bo mowisz po polsku
+z koncowkami: `branczu`, `Kodeksie`, `weryfajera`, `dzidow`. JEV nigdy nie zostanie o nie zapytany,
+bo nic sie nie dopasowalo. To nie jest problem znaczenia, tylko odmiany.
+
+Gdyby dopuscic dopasowanie po rdzeniu, zeby te 19 zlapac, wpada 8 bledow - i 7 z nich to jeden
+alias: `bard` -> `board` odpalajace sie na `bardzo` i `bardziej`. To najczestszy polski wzmacniacz,
+wiec taka pomylka jest widoczna w kazdym zdaniu.
+
+Zgodnie z "Done when" tiketu J2a: liczba bledow przy bezwarunkowej zamianie wynosi **zero**, wiec
+rekomendacja brzmi **anulowac J2** i przeniesc aliasy do listy dokladnej. Decyzja jest Twoja.
+
+Etykiety `shouldApply` nadal agent, nie Ty. Przejrzyj `test/fixtures/ambiguous-terms.ts` - 38
+wierszy, kazdy to zdanie, ktore naprawde wypowiedziales.
+
+### Pomiar
+
+314 transkryptow, 69 wystapien kandydata, 38 z nich w korpusie z etykieta (30 poprawnych,
+8 blednych).
+
+|                                | wystapienia       | psuje zdanie |
+| ------------------------------ | ----------------- | ------------ |
+| zamiana calego slowa (dzisiaj) | 11 z 30 chcianych | 0            |
+| dopasowanie po rdzeniu         | 30 z 30 chcianych | 8            |
+
+Rozklad blednych: `bardzo`/`bardziej` x7 (alias `bard`), `klaudach` x1 - tam chodzilo o pliki
+CLAUDE.md, wiec zadna pisownia `Claude` nie jest poprawna.
+
+Aliasy, ktore log naprawde pokazuje: `kodeks`->Codex (8), `brancz`->branch (4), `Potato`->poteto (3),
+`grochbot`->Grokbot (3), `dzid`->JID (3), `flit`->Fleet (2), `kursor`->Cursor (1), `kron`->cron (1),
+`piar`->PR (1), `weryfajer`->verifier (1), `promty`->prompty (1), `Light LLM`->LiteLLM (1),
+`klaud`->Claude (1), `bard`->board (1 trafiony `Barda`, 38 razy `bardzo`).
+
+Zaden kandydat nie okazal sie dwuznaczny **w tresci**. `Potato`, `kursor` i `kodeks` maja zwykle
+polskie znaczenia, ale w 314 transkryptach nie padly ani razu w tym znaczeniu. Czyli populacja,
+dla ktorej powstalo J2, jest w tym korpusie pusta.
+
+### Zmienione
+
+`scripts/corpus.ts` (skaner, `--tsv` i `--log`), `test/fixtures/ambiguous-terms.ts` (korpus),
+`test/corpus.test.ts` (odtworzenie pomiaru). `nextWholeWord` w `src/shared/replacements.ts` zostal
+wyeksportowany, zeby skaner pytal o dokladnie te same dopasowania, ktore wykona zamiana - to jedyne
+dotkniecie `src/`, poza granica tiketu, swiadome. `tsconfig.node.json` obejmuje teraz `scripts/**/*.ts`,
+bo test importuje skaner.
+
+### Sprawdzone
+
+`npm run typecheck` czysty. `npm test`: 10 plikow, 139 testow, wszystkie przechodza. `npm run build`
+przechodzi. Prettier czysty na dotknietych plikach (`npm run format:check` ma 33 wczesniejsze
+ostrzezenia, zadne w moich plikach). Test mutacyjny: poluzowanie `nextWholeWord` do dopasowania
+prefiksu wywala dokladnie te dwa testy, ktore o tym mowia (8 popsutych zdan, zasieg z 11 na 30).
+
+### Znalezione, nienaprawione
+
+`pryta` -> `prytę` nie lapie sie ani na cale slowo, ani na rdzen, bo polska odmiana zmienia tez
+ostatnia samogloske rdzenia. Skaner z sufiksem doklejanym do pelnego aliasu tego nie zobaczy nigdy.
+
+W 314 transkryptach nie ma ani jednego przypadku dwoch nakladajacych sie kandydatow, wiec wymaganie
+J2 o rozstrzyganie nakladania nie ma pokrycia w prawdziwych danych. Nie dopisalem takiego zdania -
+wymyslony przyklad nie dowodzi niczego o progu.
+
+Korpus to prawdziwa mowa. Repo musi zostac prywatne.

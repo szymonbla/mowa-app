@@ -118,8 +118,8 @@ ordinary word. That is the bounded judgement JEV exists for.
 |---|---|---|---|
 | J0 | Finish removing the intent classifier | in flight (uncommitted) | in progress |
 | J1 | JEV vetoes a correction that changed the meaning | | ready |
-| J2 | JEV arbitrates ambiguous technical terms | | blocked on J2a |
-| J2a | Labeled corpus from `~/.mowa/transkrypty.jsonl` | | ready |
+| J2 | JEV arbitrates ambiguous technical terms | | recommend cancel: J2a found zero errors |
+| J2a | Labeled corpus from `~/.mowa/transkrypty.jsonl` | impl session | done; measurement in notes.md |
 | J3 | Warn when the paste went to a different app | | needs a failure case |
 
 Order: J0 → J1 → J2a → (measure) → J2. J0 is a hard prerequisite, not a
