@@ -7,6 +7,7 @@ import { byProvider, DEFAULT_MODELS } from '../shared/providers.js'
 interface StoreFile extends Settings {
   /** Zaszyfrowane safeStorage, zapisane jako base64. */
   apiKeys: Partial<Record<ProviderId, string>>
+  openRouterKey?: string
 }
 
 const DEFAULTS: Settings = {
@@ -15,7 +16,8 @@ const DEFAULTS: Settings = {
   models: { ...DEFAULT_MODELS },
   language: 'pl',
   launchAtLogin: false,
-  transcripts: true
+  transcripts: true,
+  agentContext: false
 }
 
 let filePath = ''
@@ -98,4 +100,27 @@ export function getKeyStatus(provider: ProviderId): KeyStatus {
 
 export function getAllKeyStatus(): Record<ProviderId, KeyStatus> {
   return byProvider((p) => getKeyStatus(p.id))
+}
+
+export function setOpenRouterKey(key: string): void {
+  const trimmed = key.trim()
+  if (!trimmed) delete store.openRouterKey
+  else if (safeStorage.isEncryptionAvailable())
+    store.openRouterKey = safeStorage.encryptString(trimmed).toString('base64')
+  else throw new Error('Keychain niedostepny — nie moge bezpiecznie zapisac klucza')
+  persist()
+}
+
+export function getOpenRouterKey(): string | null {
+  if (!store.openRouterKey) return null
+  try {
+    return safeStorage.decryptString(Buffer.from(store.openRouterKey, 'base64'))
+  } catch {
+    return null
+  }
+}
+
+export function getOpenRouterKeyStatus(): KeyStatus {
+  const key = getOpenRouterKey()
+  return key ? { hasKey: true, masked: mask(key) } : { hasKey: false, masked: '' }
 }

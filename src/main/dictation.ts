@@ -3,6 +3,7 @@ import { spokenLanguage } from '../shared/languages.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
 import type { TranscribeOptions } from './providers/index.js'
+import type { AgentContext } from './agent-context.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
 
@@ -23,6 +24,7 @@ export interface DictationSettings {
   providerLabel: string
   model: string
   language: LanguageId
+  agentContext: boolean
 }
 
 /**
@@ -46,6 +48,7 @@ export interface DictationHost {
   setError(error: FailureText | null): void
   setKeyHealth(provider: ProviderId, health: KeyHealth): void
   transcribe(provider: ProviderId, wav: Buffer, opts: TranscribeOptions): Promise<string>
+  agentContext(text: string): Promise<AgentContext | null>
   /**
    * Log transkryptow — zapis surowego tekstu. Stoi obok dyktowania, wiec nie ma
    * prawa rzucic ani opoznic wklejenia.
@@ -188,7 +191,7 @@ export function createDictation(host: DictationHost): Dictation {
 
       host.log(trimmed, recording.durationMs)
 
-      await host.paste(trimmed)
+      await host.paste(await agentText(trimmed))
       phase = 'idle'
       host.setError(null)
 
@@ -202,6 +205,16 @@ export function createDictation(host: DictationHost): Dictation {
         host.setKeyHealth(provider, { state: 'invalid', message: describe(failure).message })
       }
       fail(failure)
+    }
+  }
+
+  async function agentText(text: string): Promise<string> {
+    if (!host.settings().agentContext) return text
+    try {
+      const context = await host.agentContext(text)
+      return context ? `[voice: ${context.intent} | ${context.quality}]\n\n${text}` : text
+    } catch {
+      return text
     }
   }
 

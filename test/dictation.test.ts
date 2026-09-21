@@ -4,6 +4,7 @@ import type { Dictation, DictationHost } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
+import type { AgentContext } from '../src/main/agent-context.js'
 
 interface Timer {
   ms: number
@@ -29,6 +30,8 @@ interface Fake {
   apiKey: string | null
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
+  agentContext: boolean
+  classified: AgentContext | null
   /** Przelacznik logu — wlasny, tak samo jak w ustawieniach. */
   transcripts: boolean
   /** Co trafilo do logu transkryptow, w kolejnosci. */
@@ -52,6 +55,8 @@ function fake(): Fake {
     apiKey: 'sk-test',
     micGranted: true,
     language: 'pl',
+    agentContext: false,
+    classified: null,
     transcripts: true,
     log: [],
     transcribe: () => Promise.resolve('Dzien dobry'),
@@ -63,7 +68,8 @@ function fake(): Fake {
       provider: 'xai',
       providerLabel: 'xAI Grok',
       model: '',
-      language: f.language
+      language: f.language,
+      agentContext: f.agentContext
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
@@ -95,6 +101,7 @@ function fake(): Fake {
       f.health.push({ provider, health })
     },
     transcribe: () => f.transcribe(),
+    agentContext: () => Promise.resolve(f.classified),
     log: (raw) => {
       if (!f.transcripts) return
       f.log.push(raw)
@@ -206,6 +213,16 @@ suite('dyktowanie', () => {
     expect(f.errors[f.errors.length - 1]).toBeNull()
     expect(f.health).toEqual([{ provider: 'xai', health: { state: 'ok' } }])
     expect(lastOverlay(f)).toEqual({ state: 'done' })
+  })
+
+  it('w trybie agenta dokleja status, ale zachowuje dyktowany tekst', async () => {
+    const f = fake()
+    f.agentContext = true
+    f.classified = { intent: 'change', quality: 'mixed-language' }
+
+    await recorded(f).submit(audio())
+
+    expect(f.pasted).toEqual(['[voice: change | mixed-language]\n\nDzien dobry'])
   })
 
   it('jezyk auto idzie do dostawcy jako brak jezyka', async () => {

@@ -15,6 +15,8 @@ export interface Settings {
   launchAtLogin: boolean
   /** Opcjonalny zapis surowych transkrypcji na dysku. */
   transcripts: boolean
+  /** Dokleja krotki status JEV przed tekstem wklejanym do agenta. */
+  agentContext: boolean
 }
 
 /** Stan klucza API widziany przez renderer. Sam klucz nigdy tu nie trafia. */

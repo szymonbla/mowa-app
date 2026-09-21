@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
+import { useEffect, useState } from 'react'
+import type { KeyStatus, LanguageId, PermissionStatus, Settings } from '../../../shared/types.js'
 import { LANGUAGES } from '../../../shared/languages.js'
 import { Glyph } from './Icon.js'
 
@@ -31,6 +31,11 @@ export function GeneralPane({
   // Kasowanie jest nieodwracalne, a plik zbiera sie miesiacami. Potwierdzenie robi sam
   // przycisk — okno dialogowe zablokowaloby renderera dla jednego klikniecia.
   const [confirming, setConfirming] = useState(false)
+  const [key, setKey] = useState<KeyStatus | null>(null)
+  const [draft, setDraft] = useState('')
+  useEffect(() => {
+    void window.api.getOpenRouterKey().then(setKey)
+  }, [])
 
   return (
     <>
@@ -54,6 +59,55 @@ export function GeneralPane({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="group-title">Kontekst dla agenta</div>
+
+      <div className="card">
+        <div className="row">
+          <Glyph name="sparkle" />
+          <div className="row-main">
+            <div className="row-title">Dodawaj status do dyktowania</div>
+            <div className="row-desc">
+              JEV oznacza tekst jako zmianę, pytanie, pomysł albo notatkę.
+            </div>
+          </div>
+          <div className="row-tail">
+            <button
+              className="switch"
+              data-on={settings.agentContext}
+              role="switch"
+              aria-checked={settings.agentContext}
+              onClick={() => onPatch({ agentContext: !settings.agentContext })}
+            />
+          </div>
+        </div>
+        <div className="row stack">
+          <div className="row-main">
+            <div className="row-title">Klucz OpenRouter</div>
+            <div className="row-desc">Zapisany w Keychain. Potrzebny tylko w tym trybie.</div>
+          </div>
+          <div className="key-field">
+            <input
+              type="password"
+              value={draft}
+              placeholder={key?.hasKey ? key.masked : 'sk-or-…'}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <button
+              className="primary"
+              disabled={!draft.trim()}
+              onClick={() =>
+                void window.api.setOpenRouterKey(draft).then((next) => {
+                  setKey(next)
+                  setDraft('')
+                })
+              }
+            >
+              Zapisz
+            </button>
           </div>
         </div>
       </div>

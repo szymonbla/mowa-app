@@ -1,7 +1,15 @@
 import { ipcMain, shell } from 'electron'
 import type { ProviderId, Settings, TestKeyResult } from '../shared/types.js'
 import type { RecorderFailure } from '../shared/failure.js'
-import { getAllKeyStatus, getKeyStatus, getSettings, patchSettings, setApiKey } from './settings.js'
+import {
+  getAllKeyStatus,
+  getKeyStatus,
+  getOpenRouterKeyStatus,
+  getSettings,
+  patchSettings,
+  setApiKey,
+  setOpenRouterKey
+} from './settings.js'
 import { providerMeta } from '../shared/providers.js'
 import {
   getPermissions,
@@ -21,6 +29,11 @@ export function registerIpc(): void {
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:providers', () => providerMeta())
   ipcMain.handle('settings:keys', () => getAllKeyStatus())
+  ipcMain.handle('openrouter:key', () => getOpenRouterKeyStatus())
+  ipcMain.handle('openrouter:setKey', (_e, key: string) => {
+    setOpenRouterKey(key)
+    return getOpenRouterKeyStatus()
+  })
 
   ipcMain.handle('settings:patch', (_e, patch: Partial<Settings>) => {
     if (typeof patch.launchAtLogin === 'boolean') setLaunchAtLogin(patch.launchAtLogin)

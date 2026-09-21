@@ -27,6 +27,9 @@ const api = {
     ipcRenderer.invoke('keys:set', provider, key),
   testKey: (provider: ProviderId): Promise<TestKeyResult> =>
     ipcRenderer.invoke('keys:test', provider),
+  getOpenRouterKey: (): Promise<KeyStatus> => ipcRenderer.invoke('openrouter:key'),
+  setOpenRouterKey: (key: string): Promise<KeyStatus> =>
+    ipcRenderer.invoke('openrouter:setKey', key),
 
   // --- Diagnostyka: stan klucza i ostatni blad ---
   getStatus: (): Promise<AppStatus> => ipcRenderer.invoke('status:get'),

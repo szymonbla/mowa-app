@@ -9,6 +9,8 @@ import { getPermissions, requestMicrophone } from './permissions.js'
 import { setError, setKeyHealth } from './status.js'
 import { getRecorderWindow, hideOverlay, showOverlay, updateOverlay } from './windows.js'
 import { bindCancelKey, unbindCancelKey } from './shortcut.js'
+import { classifyAgentContext } from './agent-context.js'
+import { getOpenRouterKey } from './settings.js'
 
 /** Log stoi obok dyktowania: wlasny przelacznik, wlasne zycie, zero wplywu na wynik. */
 const log = createTranscriptLog({
@@ -19,12 +21,13 @@ const log = createTranscriptLog({
 /** Adapter na Electron. Drugi adapter tej samej krawedzi — pamieciowy — zyje w testach. */
 const host: DictationHost = {
   settings() {
-    const { provider, language } = getSettings()
+    const { provider, language, agentContext } = getSettings()
     return {
       provider,
       providerLabel: providerLabel(provider),
       model: getModel(provider),
-      language
+      language,
+      agentContext
     }
   },
   apiKey: getApiKey,
@@ -39,6 +42,10 @@ const host: DictationHost = {
   setError,
   setKeyHealth,
   transcribe,
+  agentContext: async (text) => {
+    const key = getOpenRouterKey()
+    return key ? classifyAgentContext(text, key) : null
+  },
   log: (raw, speechMs) => log.write(raw, getSettings().language, speechMs),
   paste: pasteText,
   timer(ms, fn) {
