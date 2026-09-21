@@ -1,0 +1,202 @@
+diff --git a/test/dictation.test.ts b/test/dictation.test.ts
+index b4dabdc..b40040e 100644
+--- a/test/dictation.test.ts
++++ b/test/dictation.test.ts
+@@ -1,4 +1,4 @@
+-import { describe as suite, expect, it } from 'vitest'
++import { describe as suite, expect, it, vi } from 'vitest'
+ import { createDictation } from '../src/main/dictation.js'
+ import type { Dictation, DictationHost } from '../src/main/dictation.js'
+ import { FailureError } from '../src/shared/failure.js'
+@@ -25,6 +25,8 @@ interface Fake {
+   health: { provider: ProviderId; health: KeyHealth }[]
+   timers: Timer[]
+   pasted: string[]
++  /** Kolejne wartosci `setRetryAvailable` — czy tray ma pokazac „Powtorz". */
++  retryAvailable: boolean[]
+   micRequests: number
+   /** Esc podpiety przez `bindCancelKey`. Null = nie da sie anulowac. */
+   cancelKey: (() => void) | null
+@@ -51,6 +53,7 @@ function fake(): Fake {
+     health: [],
+     timers: [],
+     pasted: [],
++    retryAvailable: [],
+     micRequests: 0,
+     cancelKey: null,
+     apiKey: 'sk-test',
+@@ -111,6 +114,9 @@ function fake(): Fake {
+       f.pasted.push(text)
+       return Promise.resolve()
+     },
++    setRetryAvailable: (available) => {
++      f.retryAvailable.push(available)
++    },
+     timer: (ms, fn) => {
+       const timer = { ms, fn }
+       f.timers.push(timer)
+@@ -386,3 +392,125 @@ suite('log transkryptow w sciezce dyktowania', () => {
+     expect(f.log).toEqual([])
+   })
+ })
++
++suite('powtorka po awarii dostawcy', () => {
++  const network = (): Promise<string> => Promise.reject(new TypeError('fetch failed'))
++
++  /** Dostawca pada `failures` razy, potem odpowiada. */
++  function flaky(f: Fake, failures: number): () => number {
++    let calls = 0
++    f.transcribe = () => {
++      calls++
++      return calls <= failures ? network() : Promise.resolve('Dzien dobry')
++    }
++    return () => calls
++  }
++
++  /** Odliczanie automatycznej powtorki — jedyny zegar poza zegarem pigulki. */
++  function retryTimer(f: Fake): Timer {
++    const found = f.timers.find((t) => t.ms === 1500)
++    if (!found) throw new Error('brak zegara powtorki')
++    return found
++  }
++
++  it('pierwsza awaria sieci powtarza transkrypcje sama', async () => {
++    const f = fake()
++    const calls = flaky(f, 1)
++
++    await recorded(f).submit(audio())
++
++    expect(lastOverlay(f)).toEqual({ state: 'transcribing', message: 'Powtarzam…' })
++    expect(f.errors).toEqual([])
++    retryTimer(f).fn()
++    await vi.waitFor(() => expect(f.pasted).toEqual(['Dzien dobry']))
++    expect(calls()).toBe(2)
++    expect(lastOverlay(f)).toEqual({ state: 'done' })
++    expect(f.retryAvailable).toEqual([false])
++  })
++
++  it('po drugiej awarii skrot powtarza zamiast nagrywac', async () => {
++    const f = fake()
++    const calls = flaky(f, 2)
++    const dictation = recorded(f)
++
++    await dictation.submit(audio())
++    retryTimer(f).fn()
++    await vi.waitFor(() =>
++      expect(lastOverlay(f)).toEqual({ state: 'error', message: 'Brak sieci — skrot powtorzy' })
++    )
++    expect(f.errors.at(-1)?.fix).toBe('retry')
++    expect(f.retryAvailable).toEqual([true])
++
++    dictation.toggle()
++    expect(f.commands).toEqual(['start', 'stop'])
++    expect(lastOverlay(f)).toEqual({ state: 'transcribing' })
++    await vi.waitFor(() => expect(f.pasted).toEqual(['Dzien dobry']))
++    expect(calls()).toBe(3)
++    expect(f.retryAvailable).toEqual([true, false])
++  })
++
++  it('po zniknieciu pigulki skrot nagrywa od nowa, a retry() wciaz powtarza', async () => {
++    const f = fake()
++    flaky(f, 2)
++    const dictation = recorded(f)
++    await dictation.submit(audio())
++    retryTimer(f).fn()
++    await vi.waitFor(() => expect(lastOverlay(f).state).toBe('error'))
++
++    f.lastTimer().fn()
++    expect(f.commands.at(-1)).toBe('hide')
++
++    dictation.retry()
++    expect(f.commands).toEqual(['start', 'stop', 'hide'])
++    await vi.waitFor(() => expect(f.pasted).toEqual(['Dzien dobry']))
++  })
++
++  it('nowe nagranie kasuje oczekujaca powtorke', async () => {
++    const f = fake()
++    flaky(f, 2)
++    const dictation = recorded(f)
++    await dictation.submit(audio())
++    retryTimer(f).fn()
++    await vi.waitFor(() => expect(lastOverlay(f).state).toBe('error'))
++    f.lastTimer().fn()
++
++    dictation.toggle()
++    expect(f.commands.at(-1)).toBe('start')
++    expect(f.retryAvailable).toEqual([true, false])
++
++    dictation.cancel()
++    dictation.retry()
++    expect(f.pasted).toEqual([])
++    expect(lastOverlay(f)).toEqual({ state: 'recording' })
++  })
++
++  it('Esc w trakcie automatycznej powtorki porzuca nagranie', async () => {
++    const f = fake()
++    flaky(f, 1)
++    const dictation = recorded(f)
++    await dictation.submit(audio())
++    expect(f.timers).toHaveLength(1)
++
++    dictation.cancel()
++    expect(f.timers).toEqual([])
++    expect(f.commands.at(-1)).toBe('hide')
++    dictation.retry()
++    expect(f.pasted).toEqual([])
++  })
++
++  it('limit 429 i 5xx sa powtarzalne, 401 nie', async () => {
++    for (const status of [429, 503]) {
++      const f = fake()
++      f.transcribe = () =>
++        Promise.reject(new FailureError({ kind: 'provider-http', status, body: '' }))
++      await recorded(f).submit(audio())
++      expect(lastOverlay(f)).toEqual({ state: 'transcribing', message: 'Powtarzam…' })
++    }
++    const f = fake()
++    f.transcribe = () =>
++      Promise.reject(new FailureError({ kind: 'provider-http', status: 401, body: '' }))
++    await recorded(f).submit(audio())
++    expect(lastOverlay(f).state).toBe('error')
++    expect(f.timers.map((t) => t.ms)).toEqual([5200])
++  })
++})
+diff --git a/test/failure.test.ts b/test/failure.test.ts
+index 7f759f1..c3a9eb3 100644
+--- a/test/failure.test.ts
++++ b/test/failure.test.ts
+@@ -4,6 +4,7 @@ import {
+   PILL_MAX,
+   describe,
+   isKeyRejection,
++  isRetryable,
+   toFailure
+ } from '../src/shared/failure.js'
+ import type { Failure } from '../src/shared/failure.js'
+@@ -154,3 +155,26 @@ suite('isKeyRejection', () => {
+     expect(isKeyRejection({ kind: 'no-key', provider: 'xAI Grok' })).toBe(false)
+   })
+ })
++
++suite('powtorka', () => {
++  it('rozpoznaje awarie, po ktorych warto powtorzyc', () => {
++    expect(isRetryable({ kind: 'network' })).toBe(true)
++    expect(isRetryable(http(429))).toBe(true)
++    expect(isRetryable(http(500))).toBe(true)
++    expect(isRetryable(http(401))).toBe(false)
++    expect(isRetryable({ kind: 'paste', reason: 'unknown' })).toBe(false)
++  })
++
++  it('opisuje awarie z podpowiedzia powtorki i przyciskiem', () => {
++    expect(describe({ kind: 'network' }, { retry: true })).toMatchObject({
++      message: 'Brak sieci — skrot powtorzy',
++      fix: 'retry'
++    })
++    expect(describe(http(429), { retry: true })).toMatchObject({
++      message: 'Limit dostawcy — skrot powtorzy',
++      fix: 'retry',
++      detail: 'HTTP 429: '
++    })
++    expect(describe(http(502), { retry: true }).message).toBe('Blad dostawcy — skrot powtorzy')
++  })
++})

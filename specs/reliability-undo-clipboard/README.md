@@ -45,9 +45,9 @@ Cmd+Z plus a new dictation. The feedback entries in the tray were never used.
 
 | Ticket | Outcome | Owner session | Status |
 |---|---|---|---|
-| R1 | Recording survives failure; automatic and manual retry | this session | in progress |
-| R2 | Clipboard restore after paste; clipboard-only mode | this session | queued |
-| R3 | Redo shortcut with Cmd+Z and feedback; paste last text | this session | queued |
+| R1 | Recording survives failure; automatic and manual retry | impl session | ready |
+| R2 | Clipboard restore after paste; clipboard-only mode | impl session | ready |
+| R3 | Redo shortcut with Cmd+Z and feedback; paste last text | impl session | ready |
 
 ## Done when
 
