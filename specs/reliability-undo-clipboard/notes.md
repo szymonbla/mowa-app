@@ -296,3 +296,68 @@ a terminal, and in an editor with multi-step undo.
   behavior, unchanged here.
 - Tray: I added no "Cofnij i powtorz" item, per the design's list. The new
   shortcut is therefore discoverable only in Ustawienia → Skrot.
+
+## 2026-09-21 - implementer - R3 addendum - one undo per paste
+
+### For Szymon
+
+Reviewing the finished branch turned up a way to make mowa edit your text
+without you asking. Inside the 15 s window: press the redo shortcut (Cmd+Z goes
+out, recording starts), press Esc to abandon that recording, then press redo
+again while the window is still open. `lastPasteAt` was never cleared, so the
+second press sent a second Cmd+Z — and that one undid whatever you had done
+before the dictation, not mowa's paste. It also logged a second "bledne" for
+one dictation.
+
+`redo()` now clears `lastPasteAt` after the undo attempt, so one paste can be
+undone once. Cleared even when Cmd+Z failed: after a failure we do not know
+what is on screen, and a blind second attempt is the same hazard. `lastText` is
+untouched, so "Wklej ostatni tekst" still works.
+
+### Changed
+
+- `src/main/dictation.ts`: `lastPasteAt = null` after the `undoPaste()` attempt
+  in `redo()`.
+- `test/dictation.test.ts`: `drugie cofniecie tego samego wklejenia nie rusza
+juz cudzego tekstu` — redo, Esc, redo inside the window.
+
+### Checked
+
+The new case failed before the fix, with the exact symptom:
+
+```
+ FAIL  test/dictation.test.ts > cofnij i powtorz > drugie cofniecie tego samego
+       wklejenia nie rusza juz cudzego tekstu
+AssertionError: expected 2 to be 1
+```
+
+After the fix, `npm run typecheck` (silent, exit 0), `npm test` and
+`npm run build`:
+
+```
+ Test Files  9 passed (9)
+      Tests  111 passed (111)
+```
+
+`npm run build`: no errors. `npx prettier --check` on both files: clean.
+Commit `3ec9030`.
+
+Not checked: still no live macOS pass. The double Cmd+Z was found by reading the
+state machine, not by pressing keys.
+
+### Decisions needed
+
+None. This is a deviation from the ticket's literal `redo()` steps, which list
+undo, feedback, start and nothing else — the design never contemplated
+redo → Esc → redo. If you want the original behavior back it is one line.
+
+### Found, not fixed
+
+- `pasteLast()` does not refresh `lastPasteAt`, so the window is always measured
+  from the original dictation. Paste the last text again after a minute and the
+  redo shortcut will not undo it — it just records. Defensible either way; the
+  design does not say.
+- `index.ts` checks `result.ok` only for the dictation shortcut. If someone has
+  already set the dictation shortcut to `Alt+Shift+Space`, the redo
+  registration is rejected at startup and nothing says so. That is the existing
+  shape of the startup path, but R3 makes it reachable.
