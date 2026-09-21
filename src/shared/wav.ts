@@ -7,6 +7,7 @@
 export const SAMPLE_RATE = 16000
 
 const HEADER_BYTES = 44
+const SPEECH_RMS = 0.003
 
 /** Skleja chunki Float32 i koduje WAV mono PCM16. */
 export function encodeWav(chunks: Float32Array[], sampleRate = SAMPLE_RATE): ArrayBuffer {
@@ -49,4 +50,21 @@ export function encodeWav(chunks: Float32Array[], sampleRate = SAMPLE_RATE): Arr
 export function silentWav(durationMs: number, sampleRate = SAMPLE_RATE): ArrayBuffer {
   const samples = Math.round((sampleRate * durationMs) / 1000)
   return encodeWav([new Float32Array(samples)], sampleRate)
+}
+
+/**
+ * Lokalna bramka ciszy przed wyslaniem nagrania do STT. Przy wylaczonym AGC
+ * szum pokoju jest ponizej -50 dBFS, a cicha mowa zwykle powyzej tego progu.
+ */
+export function hasSpeech(wav: Uint8Array): boolean {
+  if (wav.byteLength <= HEADER_BYTES) return false
+  const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength)
+  let sum = 0
+  let samples = 0
+  for (let offset = HEADER_BYTES; offset + 1 < view.byteLength; offset += 2) {
+    const sample = view.getInt16(offset, true) / 0x8000
+    sum += sample * sample
+    samples++
+  }
+  return samples > 0 && Math.sqrt(sum / samples) >= SPEECH_RMS
 }

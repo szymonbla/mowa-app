@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { silentWav } from '../../src/shared/wav.js'
+import { encodeWav } from '../../src/shared/wav.js'
 import type { OverlayPayload } from '../../src/shared/types.js'
 import type { Line } from '../../src/main/transcripts.js'
 
@@ -277,13 +277,13 @@ async function uruchom(nadpisania: Record<string, unknown> = {}): Promise<Aplika
   return { dyktowanie: dictation, ustawienia, status, log, zgody }
 }
 
-/** Nagranie 4 s ciszy — wystarczy, zeby przejsc prog krotkiego dyktowania. */
+/** Krotki sygnal mowy. `durationMs` opisuje czas z recordera, nie rozmiar fixture. */
 function nagranie(durationMs = 4000): {
   ok: true
   wav: Buffer
   durationMs: number
 } {
-  return { ok: true, wav: Buffer.from(silentWav(200)), durationMs }
+  return { ok: true, wav: Buffer.from(encodeWav([new Float32Array([0.02, -0.02])])), durationMs }
 }
 
 /** Pelne dyktowanie: skrot start, skrot stop, nagranie z okna recordera. */

@@ -5,6 +5,7 @@ import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
 import type { AgentContext } from '../src/main/agent-context.js'
+import { encodeWav, silentWav } from '../src/shared/wav.js'
 
 interface Timer {
   ms: number
@@ -123,7 +124,7 @@ function fake(): Fake {
 }
 
 function audio(durationMs = 1200): { ok: true; wav: Buffer; durationMs: number } {
-  return { ok: true, wav: Buffer.alloc(64), durationMs }
+  return { ok: true, wav: Buffer.from(encodeWav([new Float32Array([0.02, -0.02])])), durationMs }
 }
 
 /** Nagrywa i konczy — stan wyjsciowy dla testow transkrypcji. */
@@ -200,6 +201,21 @@ suite('dyktowanie', () => {
     await recorded(f).submit(audio())
 
     expect(f.pasted).toEqual([])
+    expect(lastOverlay(f)).toEqual({ state: 'error', message: 'Nie wykryto mowy' })
+  })
+
+  it('nie wysyla ciszy do dostawcy STT', async () => {
+    const f = fake()
+    let calls = 0
+    f.host.transcribe = () => {
+      calls++
+      return Promise.resolve('Napisy stworzone przez społeczność Amara.org')
+    }
+
+    const dictation = recorded(f)
+    await dictation.submit({ ok: true, wav: Buffer.from(silentWav(1200)), durationMs: 1200 })
+
+    expect(calls).toBe(0)
     expect(lastOverlay(f)).toEqual({ state: 'error', message: 'Nie wykryto mowy' })
   })
 

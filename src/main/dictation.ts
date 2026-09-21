@@ -1,5 +1,6 @@
 import { describe, isKeyRejection, toFailure } from '../shared/failure.js'
 import { spokenLanguage } from '../shared/languages.js'
+import { hasSpeech } from '../shared/wav.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
 import type { TranscribeOptions } from './providers/index.js'
@@ -160,6 +161,10 @@ export function createDictation(host: DictationHost): Dictation {
 
     if (recording.durationMs < MIN_RECORDING_MS) {
       fail({ kind: 'too-short' })
+      return
+    }
+    if (!hasSpeech(recording.wav)) {
+      fail({ kind: 'no-speech' })
       return
     }
 

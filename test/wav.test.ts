@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SAMPLE_RATE, encodeWav, silentWav } from '../src/shared/wav.js'
+import { hasSpeech, SAMPLE_RATE, encodeWav, silentWav } from '../src/shared/wav.js'
 
 const ascii = (view: DataView, offset: number, length: number): string =>
   Array.from({ length }, (_, i) => String.fromCharCode(view.getUint8(offset + i))).join('')
@@ -62,5 +62,10 @@ describe('silentWav', () => {
     for (let offset = 44; offset < view.byteLength; offset += 2) {
       expect(view.getInt16(offset, true)).toBe(0)
     }
+  })
+
+  it('nie uznaje ciszy za mowe', () => {
+    expect(hasSpeech(new Uint8Array(silentWav(1000)))).toBe(false)
+    expect(hasSpeech(new Uint8Array(encodeWav([new Float32Array([0.02, -0.02])])))).toBe(true)
   })
 })
