@@ -69,11 +69,6 @@ export function parseContext(content: string): AgentContext {
   return { intent: value.intent, quality: value.quality }
 }
 
-export function withAgentContext(text: string, context: AgentContext | null): string {
-  if (!context) return text
-  return `[voice: ${context.intent} | ${context.quality}]\n\n${text}`
-}
-
 function isIntent(value: unknown): value is AgentIntent {
   return ['change', 'question', 'idea', 'note', 'unclear'].includes(value as string)
 }

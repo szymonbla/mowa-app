@@ -215,14 +215,15 @@ suite('dyktowanie', () => {
     expect(lastOverlay(f)).toEqual({ state: 'done' })
   })
 
-  it('w trybie agenta dokleja status, ale zachowuje dyktowany tekst', async () => {
+  it('w trybie agenta zachowuje dyktowany tekst i pokazuje status tylko w pigulce', async () => {
     const f = fake()
     f.agentContext = true
     f.classified = { intent: 'change', quality: 'mixed-language' }
 
     await recorded(f).submit(audio())
 
-    expect(f.pasted).toEqual(['[voice: change | mixed-language]\n\nDzien dobry'])
+    expect(f.pasted).toEqual(['Dzien dobry'])
+    expect(lastOverlay(f)).toEqual({ state: 'done', agentQuality: 'mixed-language' })
   })
 
   it('jezyk auto idzie do dostawcy jako brak jezyka', async () => {

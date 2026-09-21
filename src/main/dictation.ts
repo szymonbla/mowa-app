@@ -215,11 +215,7 @@ export function createDictation(host: DictationHost): Dictation {
     try {
       const context = await host.agentContext(text)
       if (!context) return { text, context: null, log: { status: 'unavailable' } }
-      return {
-        text: `[voice: ${context.intent} | ${context.quality}]\n\n${text}`,
-        context,
-        log: { status: 'classified', ...context }
-      }
+      return { text, context, log: { status: 'classified', ...context } }
     } catch (err) {
       const reason = err instanceof Error ? err.message.slice(0, 240) : 'unknown error'
       return { text, context: null, log: { status: 'failed', reason } }
