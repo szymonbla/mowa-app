@@ -182,3 +182,117 @@ Finder copy, and the two new switches on screen.
   with "Tylko do schowka" on). The UI does not say so. A note under the second
   switch, or disabling the first one while clipboard-only is on, would remove
   the dead combination — out of scope here.
+
+## 2026-09-21 - implementer - R3 - redo shortcut, feedback, paste last text
+
+### For Szymon
+
+`Alt+Shift+Space` is now a second global shortcut. Pressed within 15 s of a
+successful paste it sends Cmd+Z, records the dictation as "bledne" in the
+transcript log, and starts recording again — one gesture instead of Cmd+Z, then
+the dictation shortcut, then speaking. Outside that window, and when nothing has
+been pasted yet, it behaves exactly like the dictation shortcut. Pressed while
+recording, it stops the recording, same as the dictation shortcut. A Cmd+Z that
+does not land (a terminal, no Accessibility) shows up in the settings banner but
+does not stop the new recording: you are already talking.
+
+That gesture is also the feedback signal, so the two tray items "Ostatnie
+dyktowanie: trafione / bledne" are gone — they were never used. In their place:
+"Wklej ostatni tekst", which pastes the last transcript again without recording,
+next to "Powtorz ostatnie nagranie" from R1. Both are greyed out until there is
+something to use them on.
+
+The shortcut pane has a second recorder, "Cofnij i powtorz", with the
+limitation written next to it. Setting either shortcut to the other one's
+combination is rejected with "Skrot juz uzywany przez mowa", and the previous
+combination stays live — the same rule that already applied to a conflict with
+another application.
+
+### Changed
+
+- `src/main/shortcut.ts`: registrations keyed by `ShortcutName`
+  (`'dictate' | 'redo'`), each with its own accelerator, plus the new
+  same-app conflict check. `registerShortcut(name, accelerator, fn)`.
+- `src/main/dictation.ts`: `lastText`, `lastPasteAt`, `REDO_WINDOW_MS = 15000`,
+  `redo()` and `pasteLast()`. Host gained `now()`, `undoPaste()`,
+  `feedback(verdict)` and `setActions({ retry, pasteLast })`, which replaces
+  R1's `setRetryAvailable`; only changes are published, so the tray menu is not
+  rebuilt for nothing.
+- `src/main/paste.ts`: `keystroke(key)` extracted, `pasteText` uses
+  `keystroke('v')`, new `undoPaste()` uses `keystroke('z')` behind the same
+  accessibility check and the same failure mapping.
+- `src/shared/types.ts`: `ShortcutName`, `Settings.redoShortcut`;
+  `src/main/settings.ts` defaults it to `'Alt+Shift+Space'`.
+- `src/main/dictation-host.ts`: `undoPaste`, `feedback` (into
+  `markLastDictation`), `now: Date.now`, `trayActions()`, and
+  `SHORTCUT_ACTIONS` so startup and the settings window cannot bind different
+  actions to the same shortcut name.
+- `src/main/tray.ts`: feedback items out, "Wklej ostatni tekst" in.
+- `ipc.ts` `settings:setShortcut` takes `name` first; preload, `App.tsx` and
+  `ShortcutPane.tsx` pass it; `ShortcutPane` renders the second recorder.
+- `test/shortcut.test.ts`: new file, four cases on a mocked `globalShortcut`.
+- `test/dictation.test.ts`: the fake gained `now`, `undoPaste`, `feedback` and
+  `setActions`; eight cases in `cofnij i powtorz`.
+
+### Checked
+
+Tests first. With the new `test/shortcut.test.ts` and the redo suite written,
+before touching production code, `npx vitest run test/dictation.test.ts
+test/shortcut.test.ts` failed 25 cases — the 8 new ones plus every existing
+dictation case, because the fake had already dropped `setRetryAvailable`, which
+the R1 code still called.
+
+After the implementation:
+
+```
+ Test Files  1 passed (1)
+      Tests  4 passed (4)          # test/shortcut.test.ts
+ Test Files  1 passed (1)
+      Tests  36 passed (36)        # test/dictation.test.ts
+```
+
+`npm run typecheck` (silent, exit 0), `npm test`:
+
+```
+ Test Files  9 passed (9)
+      Tests  110 passed (110)
+```
+
+`npm run build`: both `tsc --noEmit` projects clean, `electron-vite build`
+wrote `out/main/index.js` (40.82 kB), `out/preload/index.mjs` and the three
+renderer bundles, "✓ built" three times, no warnings other than the
+pre-existing bundle size of `index-*.js`.
+
+`npx prettier --check` on every changed file: clean. Commit `3960f14`.
+
+Not checked: no live macOS pass, which matters more for R3 than for the other
+two tickets. Nothing here proves that `Alt+Shift+Space` is actually free on
+your machine, that macOS delivers Cmd+Z to the application under the cursor
+before the new recording starts, or that Cmd+Z undoes exactly one paste in the
+editors you use. The 15 s window and the order (undo, then feedback, then
+record) are unverified against a real keyboard. Worth trying in a text field, in
+a terminal, and in an editor with multi-step undo.
+
+### Decisions needed
+
+- `redo()` awaits Cmd+Z before showing the recording pill, so the pill appears
+  one osascript round-trip later than with the dictation shortcut. If that delay
+  is noticeable on your machine, the alternative is to start recording first and
+  undo in the background — which reverses the risk: the undo would then race
+  with the first words. I kept the design's order.
+
+### Found, not fixed
+
+- The design has `redo()` do nothing but `toggle()` while transcribing. That
+  means a mistaken paste cannot be undone with this shortcut while the next
+  dictation is in flight. Correct per the design, but the shortcut is silent
+  there and the pill does not say why.
+- `pasteLast()` catches a paste failure and routes it through `fail()`, which
+  the design does not mention. Without it a rejected promise would surface as
+  an unhandled rejection in the IPC handler.
+- `feedback('bad')` goes through `markLastDictation`, which returns early
+  unless a dictation has been logged. With transcripts turned off the log is
+  never written, so the redo gesture produces no feedback line. Existing
+  behavior, unchanged here.
+- Tray: I added no "Cofnij i powtorz" item, per the design's list. The new
+  shortcut is therefore discoverable only in Ustawienia → Skrot.
