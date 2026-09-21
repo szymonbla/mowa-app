@@ -102,33 +102,48 @@ Za to ta sama zamiana **nie widzi 19 z 30** miejsc, gdzie chcialbys poprawki, bo
 z koncowkami: `branczu`, `Kodeksie`, `weryfajera`, `dzidow`. JEV nigdy nie zostanie o nie zapytany,
 bo nic sie nie dopasowalo. To nie jest problem znaczenia, tylko odmiany.
 
-Gdyby dopuscic dopasowanie po rdzeniu, zeby te 19 zlapac, wpada 8 bledow - i 7 z nich to jeden
-alias: `bard` -> `board` odpalajace sie na `bardzo` i `bardziej`. To najczestszy polski wzmacniacz,
-wiec taka pomylka jest widoczna w kazdym zdaniu.
+Gdyby dopuscic dopasowanie po rdzeniu, zeby te 19 zlapac, w calym logu wpada **39 bledow na 69
+wystapien** - i 38 z nich to jeden alias: `bard` -> `board` odpalajace sie na `bardzo` (26 razy)
+i `bardziej` (12 razy). To najczestszy polski wzmacniacz, wiec taka pomylka bylaby widoczna
+w co drugim zdaniu.
 
-Zgodnie z "Done when" tiketu J2a: liczba bledow przy bezwarunkowej zamianie wynosi **zero**, wiec
-rekomendacja brzmi **anulowac J2** i przeniesc aliasy do listy dokladnej. Decyzja jest Twoja.
+Zgodnie z "Done when" tiketu J2a: bezwarunkowa zamiana calego slowa - ta, ktora aplikacja ma
+dzisiaj - wprowadza **zero** bledow. Rekomendacja brzmi wiec **anulowac J2** i przeniesc aliasy do
+listy dokladnej. Brakujace 19 poprawek to zadanie dla odmiany, nie dla modelu: wystarczy pozwolic
+regule dopasowac koncowke i trzymac `bard` na liscie wyjatkow. Decyzja jest Twoja.
 
 Etykiety `shouldApply` nadal agent, nie Ty. Przejrzyj `test/fixtures/ambiguous-terms.ts` - 38
 wierszy, kazdy to zdanie, ktore naprawde wypowiedziales.
 
+Reczny przebieg z "Done when" spec-a - `kursor` raz jako kareta, raz jako edytor - nie da sie
+oprzec na logu: w 314 transkryptach `kursor` pada raz i za kazdym razem chodzi o edytor.
+
+Git: scalilem prace w `main` lokalnie, bez pusha. Przed pushem przeczytaj "Blokada przed pushem"
+na koncu tego wpisu.
+
 ### Pomiar
 
-314 transkryptow, 69 wystapien kandydata, 38 z nich w korpusie z etykieta (30 poprawnych,
-8 blednych).
+314 transkryptow, 69 wystapien kandydata: 30 to miejsca, gdzie zamiana jest poprawna, 39 to
+miejsca, gdzie bylaby bledem.
 
-|                                | wystapienia       | psuje zdanie |
-| ------------------------------ | ----------------- | ------------ |
-| zamiana calego slowa (dzisiaj) | 11 z 30 chcianych | 0            |
-| dopasowanie po rdzeniu         | 30 z 30 chcianych | 8            |
+W calym logu:
 
-Rozklad blednych: `bardzo`/`bardziej` x7 (alias `bard`), `klaudach` x1 - tam chodzilo o pliki
-CLAUDE.md, wiec zadna pisownia `Claude` nie jest poprawna.
+|                                | trafia w chciane | psuje   |
+| ------------------------------ | ---------------- | ------- |
+| zamiana calego slowa (dzisiaj) | 11 z 30          | 0 z 69  |
+| dopasowanie po rdzeniu         | 30 z 30          | 39 z 69 |
+
+Korpus w `test/fixtures/ambiguous-terms.ts` to 38 z tych 69 wierszy: wszystkie 30 poprawnych
+i 8 blednych. Osiem, nie 39, bo powtarzanie tego samego `bardzo` w kolejnych wierszach niczego
+nie dodaje. Liczba, ktora decyduje o J2, to ta z calego logu: **39**.
+
+Rozklad blednych w calym logu: `bardzo` x26, `bardziej` x12 (alias `bard`), `klaudach` x1 - tam
+chodzilo o pliki CLAUDE.md, wiec zadna pisownia `Claude` nie jest poprawna.
 
 Aliasy, ktore log naprawde pokazuje: `kodeks`->Codex (8), `brancz`->branch (4), `Potato`->poteto (3),
-`grochbot`->Grokbot (3), `dzid`->JID (3), `flit`->Fleet (2), `kursor`->Cursor (1), `kron`->cron (1),
+`grochbot`->Grokbot (3), `dżid`->JID (3), `flit`->Fleet (2), `kursor`->Cursor (1), `kron`->cron (1),
 `piar`->PR (1), `weryfajer`->verifier (1), `promty`->prompty (1), `Light LLM`->LiteLLM (1),
-`klaud`->Claude (1), `bard`->board (1 trafiony `Barda`, 38 razy `bardzo`).
+`klaud`->Claude (1), `bard`->board (1 trafiony `Barda`, 38 razy `bardzo`/`bardziej`).
 
 Zaden kandydat nie okazal sie dwuznaczny **w tresci**. `Potato`, `kursor` i `kodeks` maja zwykle
 polskie znaczenia, ale w 314 transkryptach nie padly ani razu w tym znaczeniu. Czyli populacja,
@@ -158,4 +173,12 @@ W 314 transkryptach nie ma ani jednego przypadku dwoch nakladajacych sie kandyda
 J2 o rozstrzyganie nakladania nie ma pokrycia w prawdziwych danych. Nie dopisalem takiego zdania -
 wymyslony przyklad nie dowodzi niczego o progu.
 
-Korpus to prawdziwa mowa. Repo musi zostac prywatne.
+### Blokada przed pushem
+
+`gh repo view szymonbla/mowa-app` zwraca `PUBLIC`. Korpus to 38 zdan Twojej prawdziwej dyktowanej
+mowy, razem ze wzmiankami o firmie, kolegach i infrastrukturze. Merge zrobilem tylko lokalnie i
+niczego nie wypchnalem - `git ls-remote` potwierdza, ze commit nie lezy na zadnym zdalnym branchu.
+
+Zanim `main` pojdzie na GitHub, trzeba wybrac: ustawic repo na prywatne albo wyciac ten plik.
+Nie redagowalem zdan sam, bo zmyslone zdanie przestaje byc dowodem - a to jedyne, czym ten
+korpus jest.
