@@ -12,6 +12,7 @@ interface StoreFile extends Settings {
 
 const DEFAULTS: Settings = {
   shortcut: 'Alt+Space',
+  redoShortcut: 'Alt+Shift+Space',
   provider: 'xai',
   models: { ...DEFAULT_MODELS },
   language: 'pl',

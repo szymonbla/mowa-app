@@ -6,11 +6,16 @@ import type { ProviderId } from './providers.js'
 export type { ProviderId, ProviderMeta } from './providers.js'
 export type { LanguageId, SpokenLanguage } from './languages.js'
 
+/** Dwa skroty globalne: dyktowanie i „cofnij i powtorz". */
+export type ShortcutName = 'dictate' | 'redo'
+
 /** Co dyktowanie robi z gotowym tekstem. 'clipboard' = bez Cmd+V, wklejasz sam. */
 export type PasteMode = 'paste' | 'clipboard'
 
 export interface Settings {
   shortcut: string
+  /** Cofa ostatnie wklejenie przez Cmd+Z i od razu nagrywa od nowa. */
+  redoShortcut: string
   provider: ProviderId
   /** Wybrany model per dostawca. Zmiana dostawcy nie gubi wyboru modelu. */
   models: Record<ProviderId, string>

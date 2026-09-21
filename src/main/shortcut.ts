@@ -1,6 +1,8 @@
 import { globalShortcut } from 'electron'
+import type { ShortcutName } from '../shared/types.js'
 
-let current: string | null = null
+/** Aktualna kombinacja per skrot. Brak wpisu = ten skrot nie jest zarejestrowany. */
+const current: Partial<Record<ShortcutName, string>> = {}
 let escapeBound = false
 
 export interface RegisterResult {
@@ -8,13 +10,28 @@ export interface RegisterResult {
   error?: string
 }
 
-/**
- * Rejestruje skrot dyktowania. Przy konflikcie nie ruszamy poprzedniego skrotu.
- */
-export function registerShortcut(accelerator: string, onTrigger: () => void): RegisterResult {
-  if (accelerator === current) return { ok: true }
+/** Czy tej kombinacji uzywa juz drugi skrot mowa. System oddalby ja tylko jednemu. */
+function takenByOther(name: ShortcutName, accelerator: string): boolean {
+  return (Object.keys(current) as ShortcutName[]).some(
+    (other) => other !== name && current[other] === accelerator
+  )
+}
 
-  const previous = current
+/**
+ * Rejestruje jeden z globalnych skrotow. Przy konflikcie nie ruszamy poprzedniej
+ * kombinacji — uzytkownik nie moze zostac bez skrotu za jedno nieudane nacisniecie.
+ */
+export function registerShortcut(
+  name: ShortcutName,
+  accelerator: string,
+  onTrigger: () => void
+): RegisterResult {
+  if (accelerator === current[name]) return { ok: true }
+  if (takenByOther(name, accelerator)) {
+    return { ok: false, error: 'Skrot juz uzywany przez mowa' }
+  }
+
+  const previous = current[name]
   if (previous) globalShortcut.unregister(previous)
 
   let ok = false
@@ -25,14 +42,14 @@ export function registerShortcut(accelerator: string, onTrigger: () => void): Re
   }
 
   if (ok) {
-    current = accelerator
+    current[name] = accelerator
     return { ok: true }
   }
 
   // Przywracamy poprzedni skrot, zeby aplikacja nie zostala bez skrotu.
   if (previous) {
     globalShortcut.register(previous, onTrigger)
-    current = previous
+    current[name] = previous
   }
   return { ok: false, error: 'Skrot zajety przez inna aplikacje' }
 }
@@ -51,6 +68,6 @@ export function unbindCancelKey(): void {
 
 export function unregisterAll(): void {
   globalShortcut.unregisterAll()
-  current = null
+  for (const name of Object.keys(current) as ShortcutName[]) delete current[name]
   escapeBound = false
 }

@@ -2,7 +2,7 @@ import { app, session } from 'electron'
 import { initSettings, getSettings } from './settings.js'
 import { registerIpc } from './ipc.js'
 import { registerShortcut, unregisterAll } from './shortcut.js'
-import { dictation, onActionsChanged } from './dictation-host.js'
+import { SHORTCUT_ACTIONS, onActionsChanged } from './dictation-host.js'
 import { createTray, refreshTrayMenu } from './tray.js'
 import {
   getRecorderWindow,
@@ -45,7 +45,8 @@ app.whenReady().then(() => {
   createTray()
   syncLaunchAtLogin(settings.launchAtLogin)
 
-  const result = registerShortcut(settings.shortcut, dictation.toggle)
+  const result = registerShortcut('dictate', settings.shortcut, SHORTCUT_ACTIONS.dictate)
+  registerShortcut('redo', settings.redoShortcut, SHORTCUT_ACTIONS.redo)
 
   // Rozgrzewamy oba ukryte okna, zeby pierwsze dyktowanie nie czekalo na start.
   getRecorderWindow()

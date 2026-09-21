@@ -1,5 +1,5 @@
 import { ipcMain, shell } from 'electron'
-import type { ProviderId, Settings, TestKeyResult } from '../shared/types.js'
+import type { ProviderId, Settings, ShortcutName, TestKeyResult } from '../shared/types.js'
 import type { RecorderFailure } from '../shared/failure.js'
 import {
   getAllKeyStatus,
@@ -18,7 +18,7 @@ import {
   requestMicrophone
 } from './permissions.js'
 import { registerShortcut } from './shortcut.js'
-import { dictation } from './dictation-host.js'
+import { SHORTCUT_ACTIONS, dictation } from './dictation-host.js'
 import { sendOverlayLevel } from './windows.js'
 import { setLaunchAtLogin } from './autostart.js'
 import { refreshTrayMenu } from './tray.js'
@@ -42,10 +42,11 @@ export function registerIpc(): void {
     return patchSettings(patch)
   })
 
-  ipcMain.handle('settings:setShortcut', (_e, accelerator: string) => {
-    const result = registerShortcut(accelerator, dictation.toggle)
+  ipcMain.handle('settings:setShortcut', (_e, name: ShortcutName, accelerator: string) => {
+    const result = registerShortcut(name, accelerator, SHORTCUT_ACTIONS[name])
     if (result.ok) {
-      patchSettings({ shortcut: accelerator })
+      patchSettings(name === 'redo' ? { redoShortcut: accelerator } : { shortcut: accelerator })
+      // Menu pokazuje oba skroty przy swoich pozycjach.
       refreshTrayMenu()
     }
     return result

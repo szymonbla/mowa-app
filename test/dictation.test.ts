@@ -25,8 +25,17 @@ interface Fake {
   health: { provider: ProviderId; health: KeyHealth }[]
   timers: Timer[]
   pasted: string[]
-  /** Kolejne wartosci `setRetryAvailable` — czy tray ma pokazac „Powtorz". */
+  /** Kolejne stany menu: co tray ma miec czynne. */
+  actions: { retry: boolean; pasteLast: boolean }[]
+  /** Sama powtorka z `actions`, w kolejnosci — czy tray ma pokazac „Powtorz". */
   retryAvailable: boolean[]
+  /** Ile razy poszlo Cmd+Z. */
+  undos: number
+  undoPaste: () => Promise<void>
+  /** Oceny dyktowania zapisane przez `feedback()`. */
+  verdicts: string[]
+  /** Zegar pod kontrola testu — okno na cofniecie liczy sie w milisekundach. */
+  now: number
   micRequests: number
   /** Esc podpiety przez `bindCancelKey`. Null = nie da sie anulowac. */
   cancelKey: (() => void) | null
@@ -53,7 +62,12 @@ function fake(): Fake {
     health: [],
     timers: [],
     pasted: [],
+    actions: [],
     retryAvailable: [],
+    undos: 0,
+    undoPaste: () => Promise.resolve(),
+    verdicts: [],
+    now: 1_700_000_000_000,
     micRequests: 0,
     cancelKey: null,
     apiKey: 'sk-test',
@@ -114,8 +128,17 @@ function fake(): Fake {
       f.pasted.push(text)
       return Promise.resolve()
     },
-    setRetryAvailable: (available) => {
-      f.retryAvailable.push(available)
+    setActions: (actions) => {
+      f.actions.push(actions)
+      f.retryAvailable.push(actions.retry)
+    },
+    now: () => f.now,
+    undoPaste: () => {
+      f.undos++
+      return f.undoPaste()
+    },
+    feedback: (verdict) => {
+      f.verdicts.push(verdict)
     },
     timer: (ms, fn) => {
       const timer = { ms, fn }
@@ -512,5 +535,104 @@ suite('powtorka po awarii dostawcy', () => {
     await recorded(f).submit(audio())
     expect(lastOverlay(f).state).toBe('error')
     expect(f.timers.map((t) => t.ms)).toEqual([5200])
+  })
+})
+
+/**
+ * Jeden gest zamiast trzech: cofnij zle wklejenie, powiedz, ze bylo zle, i mow dalej.
+ * Okno 15 s jest tu cala trescia — poza nim ten sam skrot to zwykle dyktowanie.
+ */
+suite('cofnij i powtorz', () => {
+  /** Udane dyktowanie. Stan wyjsciowy dla `redo()` i `pasteLast()`. */
+  async function pasted(f: Fake): Promise<Dictation> {
+    const dictation = recorded(f)
+    await dictation.submit(audio())
+    return dictation
+  }
+
+  it('w oknie po wklejeniu cofa, zglasza bledne i nagrywa od nowa', async () => {
+    const f = fake()
+    const dictation = await pasted(f)
+
+    f.now += 3000
+    await dictation.redo()
+
+    expect(f.undos).toBe(1)
+    expect(f.verdicts).toEqual(['bad'])
+    expect(f.commands).toEqual(['start', 'stop', 'start'])
+    expect(lastOverlay(f)).toEqual({ state: 'recording' })
+  })
+
+  it('po oknie 15 s nie cofa niczego, tylko nagrywa', async () => {
+    const f = fake()
+    const dictation = await pasted(f)
+
+    f.now += 15_001
+    await dictation.redo()
+
+    expect(f.undos).toBe(0)
+    expect(f.verdicts).toEqual([])
+    expect(f.commands.at(-1)).toBe('start')
+  })
+
+  it('bez wczesniejszego wklejenia dziala jak skrot dyktowania', async () => {
+    const f = fake()
+    const dictation = createDictation(f.host)
+
+    await dictation.redo()
+
+    expect(f.undos).toBe(0)
+    expect(f.commands).toEqual(['start'])
+  })
+
+  it('w trakcie nagrywania konczy nagranie, jak drugie nacisniecie skrotu', async () => {
+    const f = fake()
+    const dictation = createDictation(f.host)
+    dictation.toggle()
+
+    await dictation.redo()
+
+    expect(f.commands).toEqual(['start', 'stop'])
+    expect(f.undos).toBe(0)
+    expect(lastOverlay(f)).toEqual({ state: 'transcribing' })
+  })
+
+  it('nieudane Cmd+Z melduje blad, ale nagranie i tak startuje', async () => {
+    const f = fake()
+    const dictation = await pasted(f)
+    f.undoPaste = () => Promise.reject(new FailureError({ kind: 'paste', reason: 'accessibility' }))
+
+    await dictation.redo()
+
+    expect(f.errors.at(-1)?.message).toBe('Brak zgody Accessibility — tekst w schowku')
+    expect(f.verdicts).toEqual(['bad'])
+    expect(f.commands.at(-1)).toBe('start')
+  })
+
+  it('wkleja ostatni tekst jeszcze raz', async () => {
+    const f = fake()
+    const dictation = await pasted(f)
+
+    await dictation.pasteLast()
+
+    expect(f.pasted).toEqual(['Dzien dobry', 'Dzien dobry'])
+    expect(lastOverlay(f)).toEqual({ state: 'done' })
+    expect(f.lastTimer().ms).toBe(600)
+  })
+
+  it('bez wklejonego tekstu nie robi nic', async () => {
+    const f = fake()
+
+    await createDictation(f.host).pasteLast()
+
+    expect(f.pasted).toEqual([])
+    expect(f.overlay).toEqual([])
+  })
+
+  it('po udanym wklejeniu tray ma czynne „Wklej ostatni tekst"', async () => {
+    const f = fake()
+    await pasted(f)
+
+    expect(f.actions.at(-1)).toEqual({ retry: false, pasteLast: true })
   })
 })

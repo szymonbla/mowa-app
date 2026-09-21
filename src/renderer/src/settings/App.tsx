@@ -6,7 +6,8 @@ import type {
   PermissionStatus,
   ProviderId,
   ProviderMeta,
-  Settings
+  Settings,
+  ShortcutName
 } from '../../../shared/types.js'
 import { Banner } from './Banner.js'
 import type { Problem } from './Banner.js'
@@ -55,11 +56,14 @@ export function App(): React.JSX.Element | null {
     void window.api.patchSettings(part).then(setSettings)
   }, [])
 
-  const setShortcut = useCallback(async (accelerator: string): Promise<string | null> => {
-    const result = await window.api.setShortcut(accelerator)
-    if (result.ok) setSettings(await window.api.getSettings())
-    return result.ok ? null : (result.error ?? 'Nie udalo sie ustawic skrotu')
-  }, [])
+  const setShortcut = useCallback(
+    async (name: ShortcutName, accelerator: string): Promise<string | null> => {
+      const result = await window.api.setShortcut(name, accelerator)
+      if (result.ok) setSettings(await window.api.getSettings())
+      return result.ok ? null : (result.error ?? 'Nie udalo sie ustawic skrotu')
+    },
+    []
+  )
 
   /** Przycisk w pasku bledu prowadzi prosto do naprawy, a nie do instrukcji. */
   const applyFix = useCallback(
@@ -164,7 +168,11 @@ export function App(): React.JSX.Element | null {
           )}
 
           {view === 'shortcut' && (
-            <ShortcutPane shortcut={settings.shortcut} onChange={setShortcut} />
+            <ShortcutPane
+              shortcut={settings.shortcut}
+              redoShortcut={settings.redoShortcut}
+              onChange={setShortcut}
+            />
           )}
 
           {view === 'model' && (

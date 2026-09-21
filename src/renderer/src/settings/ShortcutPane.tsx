@@ -1,12 +1,14 @@
 import { Glyph } from './Icon.js'
 import { ShortcutRecorder } from './ShortcutRecorder.js'
+import type { ShortcutName } from '../../../shared/types.js'
 
 interface Props {
   shortcut: string
-  onChange: (accelerator: string) => Promise<string | null>
+  redoShortcut: string
+  onChange: (name: ShortcutName, accelerator: string) => Promise<string | null>
 }
 
-export function ShortcutPane({ shortcut, onChange }: Props): React.JSX.Element {
+export function ShortcutPane({ shortcut, redoShortcut, onChange }: Props): React.JSX.Element {
   return (
     <>
       <div className="card">
@@ -17,7 +19,27 @@ export function ShortcutPane({ shortcut, onChange }: Props): React.JSX.Element {
             <div className="row-desc">Kliknij pole i nacisnij kombinacje.</div>
           </div>
           <div className="row-tail">
-            <ShortcutRecorder value={shortcut} onChange={onChange} />
+            <ShortcutRecorder
+              value={shortcut}
+              onChange={(accelerator) => onChange('dictate', accelerator)}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          <Glyph name="text" />
+          <div className="row-main">
+            <div className="row-title">Cofnij i powtorz</div>
+            <div className="row-desc">
+              Cofa ostatnie wklejenie przez Cmd+Z i od razu nagrywa. Dziala w polach tekstowych; w
+              terminalu tylko nagrywa od nowa.
+            </div>
+          </div>
+          <div className="row-tail">
+            <ShortcutRecorder
+              value={redoShortcut}
+              onChange={(accelerator) => onChange('redo', accelerator)}
+            />
           </div>
         </div>
       </div>

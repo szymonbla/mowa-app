@@ -9,8 +9,6 @@ import type { PasteMode } from '../shared/types.js'
 
 const execFileAsync = promisify(execFile)
 
-const PASTE_SCRIPT = 'tell application "System Events" to keystroke "v" using command down'
-
 /** Monit TCC blokuje osascript, dopoki uzytkownik nie odpowie. */
 const PASTE_TIMEOUT_MS = 5000
 
@@ -82,6 +80,34 @@ function pasteFailure(err: unknown): PasteFailure {
 }
 
 /**
+ * Wysyla jeden skrot z klawisza Command do aktywnej aplikacji. Jedyna droga, ktora
+ * mowa ma do cudzego okna — i jedyne miejsce, w ktorym powstaja awarie zgod.
+ */
+async function keystroke(key: string): Promise<void> {
+  const script = `tell application "System Events" to keystroke "${key}" using command down`
+  try {
+    await execFileAsync('osascript', ['-e', script], { timeout: PASTE_TIMEOUT_MS })
+  } catch (err) {
+    const failure = pasteFailure(err)
+    // Udana proba jest jedynym pewnym dowodem zgody — zapamietujemy oba wyniki.
+    if (failure.reason === 'automation') setAutomation('denied')
+    throw new FailureError(failure)
+  }
+  setAutomation('granted')
+}
+
+/**
+ * Cofa ostatnie wklejenie. Dziala w polach tekstowych; w terminalu Cmd+Z nie ma
+ * znaczenia, wiec wynik zalezy od aplikacji na wierzchu.
+ */
+export async function undoPaste(): Promise<void> {
+  if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+    throw new FailureError({ kind: 'paste', reason: 'accessibility' })
+  }
+  await keystroke('z')
+}
+
+/**
  * Zapisuje tekst do schowka i wysyla Cmd+V do aktywnej aplikacji, a potem oddaje
  * schowek temu, co bylo w nim wczesniej.
  *
@@ -105,16 +131,7 @@ export async function pasteText(text: string, opts: PasteOptions): Promise<void>
   // Schowek systemowy potrzebuje chwili, zanim Cmd+V zobaczy nowa zawartosc.
   await new Promise((r) => setTimeout(r, 60))
 
-  try {
-    await execFileAsync('osascript', ['-e', PASTE_SCRIPT], { timeout: PASTE_TIMEOUT_MS })
-  } catch (err) {
-    const failure = pasteFailure(err)
-    // Udana proba jest jedynym pewnym dowodem zgody — zapamietujemy oba wyniki.
-    if (failure.reason === 'automation') setAutomation('denied')
-    throw new FailureError(failure)
-  }
-
-  setAutomation('granted')
+  await keystroke('v')
 
   /*
    * Tylko udane Cmd+V znaczy, ze tekst doszedl na miejsce. Po awarii transkrypt

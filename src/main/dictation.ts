@@ -19,6 +19,12 @@ const MIN_RECORDING_MS = 350
  * i za malo, zeby uzytkownik zaczal mowic drugi raz.
  */
 const RETRY_DELAY_MS = 1500
+/**
+ * Jak dlugo po wklejeniu skrot cofania odnosi sie jeszcze do tego wklejenia.
+ * Dluzej niz ludzka reakcja na zly tekst, krocej niz powrot do pracy gdzie indziej —
+ * po tym czasie Cmd+Z cofnelby cudza zmiane.
+ */
+const REDO_WINDOW_MS = 15_000
 
 /** Co odsyla okno recordera: nagranie albo powod, dla ktorego go nie ma. */
 export type Recording =
@@ -61,8 +67,14 @@ export interface DictationHost {
    */
   log(raw: string, speechMs: number, agent?: AgentContextLog): void
   paste(text: string): Promise<void>
-  /** Czy jest co powtarzac. Tray i pasek w ustawieniach same tego nie wiedza. */
-  setRetryAvailable(available: boolean): void
+  /** Cmd+Z do aktywnej aplikacji. Cofa wklejenie, ktore wlasnie poszlo. */
+  undoPaste(): Promise<void>
+  /** Ocena ostatniego dyktowania. Lokalny sygnal, bez tresci. */
+  feedback(verdict: 'good' | 'bad'): void
+  /** Co tray ma czynne. Dyktowanie nie wie, jak wyglada menu. */
+  setActions(actions: { retry: boolean; pasteLast: boolean }): void
+  /** Zegar scienny. Okno na cofniecie liczy sie w czasie uzytkownika, nie w fazach. */
+  now(): number
   /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
   timer(ms: number, fn: () => void): () => void
 }
@@ -74,6 +86,13 @@ export interface Dictation {
   submit(recording: Recording): Promise<void>
   /** Wysyla zapamietane nagranie jeszcze raz. Bez nagrania — nic nie robi. */
   retry(): void
+  /**
+   * Skrot cofania. Zaraz po wklejeniu: Cmd+Z, ocena „bledne" i nowe nagranie.
+   * Poza tym okresem — to samo co `toggle()`.
+   */
+  redo(): Promise<void>
+  /** Wkleja ostatni tekst jeszcze raz, bez nagrywania. */
+  pasteLast(): Promise<void>
 }
 
 /**
@@ -96,6 +115,18 @@ export function createDictation(host: DictationHost): Dictation {
   let retryArmed = false
   /** Odliczanie do automatycznej powtorki. Osobne od zegara pigulki. */
   let retryTimer: (() => void) | null = null
+  /** Ostatni wklejony tekst i chwila wklejenia. Z tego zyja `redo()` i `pasteLast()`. */
+  let lastText: string | null = null
+  let lastPasteAt: number | null = null
+  /** Co tray ma czynne. Wysylamy tylko zmiany — menu nie ma sie przebudowywac bez powodu. */
+  let actions = { retry: false, pasteLast: false }
+
+  function setActions(next: Partial<typeof actions>): void {
+    const merged = { ...actions, ...next }
+    if (merged.retry === actions.retry && merged.pasteLast === actions.pasteLast) return
+    actions = merged
+    host.setActions(merged)
+  }
 
   function clearTimer(): void {
     stopTimer?.()
@@ -117,12 +148,10 @@ export function createDictation(host: DictationHost): Dictation {
   }
 
   /** Nagranie przestaje byc czymkolwiek: ani skrot, ani tray nie maja co powtarzac. */
-  function dropPending(): void {
+  function forgetPending(): void {
+    pending = null
     autoRetried = false
     clearRetryTimer()
-    if (!pending) return
-    pending = null
-    host.setRetryAvailable(false)
   }
 
   /**
@@ -139,7 +168,7 @@ export function createDictation(host: DictationHost): Dictation {
     hideAfter(text.fix ? ACTION_HIDE_MS : ERROR_HIDE_MS)
     if (!opts?.retry) return
     retryArmed = true
-    host.setRetryAvailable(true)
+    setActions({ retry: true })
   }
 
   /**
@@ -161,7 +190,8 @@ export function createDictation(host: DictationHost): Dictation {
 
     clearTimer()
     // Nowe nagranie zastepuje poprzednie: stare nie ma juz gdzie wrocic.
-    dropPending()
+    forgetPending()
+    setActions({ retry: false })
     phase = 'recording'
     host.showOverlay({ state: 'recording' })
     host.bindCancelKey(cancel)
@@ -195,10 +225,50 @@ export function createDictation(host: DictationHost): Dictation {
     phase = 'idle'
     run++
     // Esc w trakcie odliczania do powtorki tez znaczy „zapomnij o tym nagraniu".
-    dropPending()
+    forgetPending()
+    setActions({ retry: false })
     host.unbindCancelKey()
     host.record('cancel')
     host.hideOverlay()
+  }
+
+  /**
+   * Zle wklejenie kosztuje jeden gest: Cmd+Z, ocena i nowe nagranie. Poza oknem
+   * `REDO_WINDOW_MS` uzytkownik jest juz gdzie indziej — cofalibysmy cudza zmiane,
+   * wiec skrot znaczy wtedy dokladnie to samo co skrot dyktowania.
+   */
+  async function redo(): Promise<void> {
+    if (phase !== 'idle') {
+      toggle()
+      return
+    }
+    if (lastPasteAt === null || host.now() - lastPasteAt > REDO_WINDOW_MS) {
+      start()
+      return
+    }
+
+    try {
+      await host.undoPaste()
+    } catch (err) {
+      // Cmd+Z nie dochodzi np. w terminalu. Blad melduje sie w ustawieniach, ale
+      // nagranie startuje tak samo: uzytkownik juz zaczyna mowic.
+      host.setError(describe(toFailure(err)))
+    }
+    host.feedback('bad')
+    start()
+  }
+
+  /** Ten sam tekst jeszcze raz — gdy pierwsze wklejenie poszlo w zle okno. */
+  async function pasteLast(): Promise<void> {
+    if (!lastText) return
+    try {
+      await host.paste(lastText)
+    } catch (err) {
+      fail(toFailure(err))
+      return
+    }
+    host.showOverlay({ state: 'done' })
+    hideAfter(DONE_HIDE_MS)
   }
 
   /** Powtorka z tray, paska w ustawieniach albo skrotu przy widocznej pigulce. */
@@ -269,8 +339,11 @@ export function createDictation(host: DictationHost): Dictation {
       host.log(trimmed, recording.durationMs, agent.log)
       await host.paste(agent.text)
       phase = 'idle'
-      // Tekst doszedl — nie ma juz czego powtarzac.
-      dropPending()
+      // Tekst doszedl: nie ma juz czego powtarzac, ale jest co cofnac i co wkleic.
+      forgetPending()
+      lastText = agent.text
+      lastPasteAt = host.now()
+      setActions({ retry: false, pasteLast: true })
       host.setError(null)
 
       host.updateOverlay({ state: 'done', agentQuality: agent.context?.quality })
@@ -314,5 +387,5 @@ export function createDictation(host: DictationHost): Dictation {
     }
   }
 
-  return { toggle, cancel, submit, retry }
+  return { toggle, cancel, submit, retry, redo, pasteLast }
 }

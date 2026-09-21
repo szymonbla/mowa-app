@@ -9,6 +9,7 @@ import type {
   ProviderId,
   ProviderMeta,
   Settings,
+  ShortcutName,
   TestKeyResult
 } from '../shared/types.js'
 
@@ -18,8 +19,11 @@ const api = {
   patchSettings: (patch: Partial<Settings>): Promise<Settings> =>
     ipcRenderer.invoke('settings:patch', patch),
   getProviders: (): Promise<ProviderMeta[]> => ipcRenderer.invoke('settings:providers'),
-  setShortcut: (accelerator: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('settings:setShortcut', accelerator),
+  setShortcut: (
+    name: ShortcutName,
+    accelerator: string
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('settings:setShortcut', name, accelerator),
 
   // --- Klucze API. Renderer widzi tylko maske, nigdy klucza. ---
   getKeys: (): Promise<Record<ProviderId, KeyStatus>> => ipcRenderer.invoke('settings:keys'),
