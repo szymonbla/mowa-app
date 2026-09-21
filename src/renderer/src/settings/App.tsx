@@ -67,6 +67,7 @@ export function App(): React.JSX.Element | null {
       if (fix === 'accessibility') await window.api.requestAccessibility()
       if (fix === 'automation') await window.api.requestAutomation()
       if (fix === 'microphone') await window.api.requestMicrophone()
+      if (fix === 'retry') await window.api.retry()
       if (fix === 'key') setView('model')
       await refreshPermissions()
     },

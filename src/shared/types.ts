@@ -51,7 +51,14 @@ export interface TestKeyResult {
 }
 
 /** Do czego prowadzi przycisk naprawy przy komunikacie bledu. */
-export type ErrorFix = 'accessibility' | 'automation' | 'microphone' | 'key' | 'network'
+export type ErrorFix =
+  | 'accessibility'
+  | 'automation'
+  | 'microphone'
+  | 'key'
+  | 'network'
+  /** Powtarza zapamietane nagranie — jedyna naprawa, ktora nie wymaga uzytkownika. */
+  | 'retry'
 
 export interface AppError {
   /** Krotki tekst do pigulki. Maks. ok. 45 znakow — dluzszy sie nie zmiesci. */

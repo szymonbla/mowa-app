@@ -134,6 +134,27 @@ body,
   border-radius: 13px;
 }
 
+/*
+ * Pigulka z komunikatem („Powtarzam…") rosnie w gore, nie w bok: sciezka zostaje
+ * na swoim miejscu i tej samej szerokosci, a pod nia staje jedno slowo.
+ */
+.pill.with-note {
+  flex-direction: column;
+  gap: 2px;
+  height: auto;
+  padding: 5px 12px;
+  border-radius: 13px;
+}
+
+/* Jasnoszary, nie czerwony: to stan w toku, a nie blad. */
+.note {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  line-height: 1.2;
+  color: #b8b4ab;
+}
+
 .message {
   font-size: 11px;
   font-weight: 500;

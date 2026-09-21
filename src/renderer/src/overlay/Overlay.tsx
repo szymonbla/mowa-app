@@ -116,8 +116,11 @@ export function Overlay(): React.JSX.Element | null {
     )
   }
 
+  // Komunikat pod sciezka pojawia sie tylko w transkrypcji — pigulka rosnie wtedy w gore.
+  const note = state === 'transcribing' ? message : undefined
+
   return (
-    <div className={`pill ${state}`}>
+    <div className={`pill ${state}${note ? ' with-note' : ''}`}>
       <div className="track">
         <div className="strip" ref={stripRef}>
           {Array.from({ length: COLS + 1 }, (_, i) => (
@@ -132,6 +135,7 @@ export function Overlay(): React.JSX.Element | null {
           ))}
         </div>
       </div>
+      {note && <span className="note">{note}</span>}
       {state === 'done' && agentQuality && <span className={`agent-dot ${agentQuality}`} />}
     </div>
   )

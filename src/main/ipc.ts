@@ -65,6 +65,9 @@ export function registerIpc(): void {
     return { ok: false, error: health.message ?? 'Blad' }
   })
 
+  // Pasek w ustawieniach ma ten sam przycisk co tray — jedna droga do powtorki.
+  ipcMain.handle('dictation:retry', () => dictation.retry())
+
   ipcMain.handle('status:get', () => getStatus())
   ipcMain.handle('status:clearError', () => setError(null))
 

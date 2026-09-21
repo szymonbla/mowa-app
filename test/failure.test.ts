@@ -4,6 +4,7 @@ import {
   PILL_MAX,
   describe,
   isKeyRejection,
+  isRetryable,
   toFailure
 } from '../src/shared/failure.js'
 import type { Failure } from '../src/shared/failure.js'
@@ -152,5 +153,29 @@ suite('isKeyRejection', () => {
     expect(isKeyRejection(http(403))).toBe(true)
     expect(isKeyRejection(http(429))).toBe(false)
     expect(isKeyRejection({ kind: 'no-key', provider: 'xAI Grok' })).toBe(false)
+  })
+})
+
+suite('powtorka', () => {
+  it('rozpoznaje awarie, po ktorych warto powtorzyc', () => {
+    expect(isRetryable({ kind: 'network' })).toBe(true)
+    expect(isRetryable(http(429))).toBe(true)
+    expect(isRetryable(http(500))).toBe(true)
+    expect(isRetryable(http(401))).toBe(false)
+    expect(isRetryable({ kind: 'paste', reason: 'unknown' })).toBe(false)
+  })
+
+  it('opisuje awarie z podpowiedzia powtorki i przyciskiem', () => {
+    expect(describe({ kind: 'network' }, { retry: true })).toMatchObject({
+      message: 'Brak sieci — skrot powtorzy',
+      fix: 'retry'
+    })
+    expect(describe(http(429), { retry: true })).toMatchObject({
+      message: 'Limit dostawcy — skrot powtorzy',
+      fix: 'retry',
+      // Szczegol z odpowiedzi dostawcy przezywa podmiane komunikatu.
+      detail: 'HTTP 429: {"error":"nope"}'
+    })
+    expect(describe(http(502), { retry: true }).message).toBe('Blad dostawcy — skrot powtorzy')
   })
 })

@@ -31,6 +31,9 @@ const api = {
   setOpenRouterKey: (key: string): Promise<KeyStatus> =>
     ipcRenderer.invoke('openrouter:setKey', key),
 
+  /** Powtarza zapamietane nagranie. Bez nagrania nic sie nie dzieje. */
+  retry: (): Promise<void> => ipcRenderer.invoke('dictation:retry'),
+
   // --- Diagnostyka: stan klucza i ostatni blad ---
   getStatus: (): Promise<AppStatus> => ipcRenderer.invoke('status:get'),
   clearError: (): Promise<void> => ipcRenderer.invoke('status:clearError'),

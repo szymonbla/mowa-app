@@ -6,7 +6,8 @@ const FIX_LABELS: Record<ErrorFix, string> = {
   automation: 'Nadaj zgode',
   microphone: 'Nadaj zgode',
   key: 'Otworz klucz',
-  network: ''
+  network: '',
+  retry: 'Powtorz'
 }
 
 export interface Problem {

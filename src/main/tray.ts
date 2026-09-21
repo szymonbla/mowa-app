@@ -1,6 +1,6 @@
 import { Menu, Tray, app, nativeImage } from 'electron'
 import { showSettingsWindow } from './windows.js'
-import { dictation } from './dictation-host.js'
+import { dictation, isRetryAvailable } from './dictation-host.js'
 import { getSettings } from './settings.js'
 import { markLastDictation } from './feedback.js'
 
@@ -51,6 +51,12 @@ export function refreshTrayMenu(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Dyktuj', accelerator: shortcut, click: dictation.toggle },
+      // Wygaszone, dopoki nie ma nagrania — inaczej klikniecie milczy bez powodu.
+      {
+        label: 'Powtorz ostatnie nagranie',
+        enabled: isRetryAvailable(),
+        click: dictation.retry
+      },
       { type: 'separator' },
       { label: 'Ostatnie dyktowanie: trafione', click: () => markLastDictation('good') },
       { label: 'Ostatnie dyktowanie: bledne', click: () => markLastDictation('bad') },

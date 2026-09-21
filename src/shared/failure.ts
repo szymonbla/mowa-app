@@ -61,6 +61,17 @@ export function isKeyRejection(failure: Failure): boolean {
   return failure.kind === 'provider-http' && (failure.status === 401 || failure.status === 403)
 }
 
+/**
+ * True dla awarii, ktore mijaja same: brak sieci, limit dostawcy, awaria po jego stronie.
+ * Nagranie jest wtedy dobre, wiec to samo audio ma sens wyslac drugi raz. Wklejanie
+ * nie jest tu wymienione — tekst lezy juz w schowku, powtarzac nie ma czego.
+ */
+export function isRetryable(failure: Failure): boolean {
+  if (failure.kind === 'network') return true
+  if (failure.kind !== 'provider-http') return false
+  return failure.status === 429 || failure.status >= 500
+}
+
 /** Ile znakow miesci pigulka HUD. Jedyne miejsce, ktore o tym decyduje. */
 export const PILL_MAX = 45
 
@@ -130,10 +141,26 @@ function text(failure: Failure): FailureText {
 }
 
 /**
+ * Komunikat dla awarii, ktora da sie powtorzyc zapamietanym nagraniem. Mowi o czynie
+ * uzytkownika, nie o stanie swiata: sam kod bledu nie podpowiada, ze wystarczy skrot.
+ */
+function retryMessage(failure: Failure): string | null {
+  if (failure.kind === 'network') return 'Brak sieci — skrot powtorzy'
+  if (failure.kind !== 'provider-http') return null
+  if (failure.status === 429) return 'Limit dostawcy — skrot powtorzy'
+  return failure.status >= 500 ? 'Blad dostawcy — skrot powtorzy' : null
+}
+
+/**
  * Jedyne zrodlo tresci bledow. Komunikat zawsze miesci sie w pigulce; `detail` bywa
  * dlugi i zostaje w oknie ustawien, gdzie da sie go przeczytac.
+ *
+ * `retry` zmienia tylko komunikat i przycisk — `detail` z odpowiedzi dostawcy zostaje,
+ * bo to ten sam blad, tylko z innym wyjsciem dla uzytkownika.
  */
-export function describe(failure: Failure): FailureText {
+export function describe(failure: Failure, opts?: { retry?: boolean }): FailureText {
   const described = text(failure)
+  const retry = opts?.retry ? retryMessage(failure) : null
+  if (retry) return { ...described, message: short(retry), fix: 'retry' }
   return { ...described, message: short(described.message) }
 }

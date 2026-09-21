@@ -20,6 +20,21 @@ const log = createTranscriptLog({
   append: appendLine
 })
 
+/**
+ * Czy jest zapamietane nagranie do powtorki. Tray o dyktowaniu wie, ale dyktowanie
+ * o tray nie: kto odswieza menu, ustala warstwa startowa — tak samo jak w `status.ts`.
+ */
+let retryAvailable = false
+let onActions: (() => void) | null = null
+
+export function onActionsChanged(fn: () => void): void {
+  onActions = fn
+}
+
+export function isRetryAvailable(): boolean {
+  return retryAvailable
+}
+
 /** Adapter na Electron. Drugi adapter tej samej krawedzi — pamieciowy — zyje w testach. */
 const host: DictationHost = {
   settings() {
@@ -54,6 +69,11 @@ const host: DictationHost = {
     rememberLastDictation()
   },
   paste: pasteText,
+  setRetryAvailable(available) {
+    if (retryAvailable === available) return
+    retryAvailable = available
+    onActions?.()
+  },
   timer(ms, fn) {
     const id = setTimeout(fn, ms)
     return () => clearTimeout(id)

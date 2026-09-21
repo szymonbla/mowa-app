@@ -2,7 +2,7 @@ import { app, session } from 'electron'
 import { initSettings, getSettings } from './settings.js'
 import { registerIpc } from './ipc.js'
 import { registerShortcut, unregisterAll } from './shortcut.js'
-import { dictation } from './dictation-host.js'
+import { dictation, onActionsChanged } from './dictation-host.js'
 import { createTray, refreshTrayMenu } from './tray.js'
 import {
   getRecorderWindow,
@@ -33,6 +33,9 @@ app.whenReady().then(() => {
 
   // Diagnostyka trafia do okna ustawien tylko stad — sam status o oknach nie wie.
   onStatusChanged(sendStatus)
+
+  // Tak samo dyktowanie nie zna tray: menu odswieza sie stad, gdy pojawia sie powtorka.
+  onActionsChanged(refreshTrayMenu)
 
   // Katalog logu robimy zawsze, takze przy wylaczonym przelaczniku: wykluczenie
   // z Time Machine ma juz obowiazywac, gdy uzytkownik go wlaczy.
