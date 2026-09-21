@@ -3,7 +3,7 @@ import { spokenLanguage } from '../shared/languages.js'
 import type { Failure, FailureText, RecorderFailure } from '../shared/failure.js'
 import type { KeyHealth, LanguageId, OverlayPayload, ProviderId } from '../shared/types.js'
 import type { TranscribeOptions } from './providers/index.js'
-import type { AgentContext } from './agent-context.js'
+import type { AgentContext, AgentContextLog } from './agent-context.js'
 
 type Phase = 'idle' | 'recording' | 'transcribing'
 
@@ -53,7 +53,7 @@ export interface DictationHost {
    * Log transkryptow — zapis surowego tekstu. Stoi obok dyktowania, wiec nie ma
    * prawa rzucic ani opoznic wklejenia.
    */
-  log(raw: string, speechMs: number): void
+  log(raw: string, speechMs: number, agent?: AgentContextLog): void
   paste(text: string): Promise<void>
   /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
   timer(ms: number, fn: () => void): () => void
@@ -189,9 +189,8 @@ export function createDictation(host: DictationHost): Dictation {
       // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
       host.setKeyHealth(provider, { state: 'ok' })
 
-      host.log(trimmed, recording.durationMs)
-
       const agent = await agentText(trimmed)
+      host.log(trimmed, recording.durationMs, agent.log)
       await host.paste(agent.text)
       phase = 'idle'
       host.setError(null)
@@ -209,16 +208,20 @@ export function createDictation(host: DictationHost): Dictation {
     }
   }
 
-  async function agentText(text: string): Promise<{ text: string; context: AgentContext | null }> {
+  async function agentText(
+    text: string
+  ): Promise<{ text: string; context: AgentContext | null; log?: AgentContextLog }> {
     if (!host.settings().agentContext) return { text, context: null }
     try {
       const context = await host.agentContext(text)
+      if (!context) return { text, context: null, log: { status: 'unavailable' } }
       return {
-        text: context ? `[voice: ${context.intent} | ${context.quality}]\n\n${text}` : text,
-        context
+        text: `[voice: ${context.intent} | ${context.quality}]\n\n${text}`,
+        context,
+        log: { status: 'classified', ...context }
       }
     } catch {
-      return { text, context: null }
+      return { text, context: null, log: { status: 'failed' } }
     }
   }
 

@@ -46,7 +46,7 @@ const host: DictationHost = {
     const key = getOpenRouterKey()
     return key ? classifyAgentContext(text, key) : null
   },
-  log: (raw, speechMs) => log.write(raw, getSettings().language, speechMs),
+  log: (raw, speechMs, agent) => log.write(raw, getSettings().language, speechMs, agent),
   paste: pasteText,
   timer(ms, fn) {
     const id = setTimeout(fn, ms)

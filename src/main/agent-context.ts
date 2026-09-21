@@ -6,6 +6,10 @@ export interface AgentContext {
   quality: AgentQuality
 }
 
+export type AgentContextLog =
+  | { status: 'classified'; intent: AgentIntent; quality: AgentQuality }
+  | { status: 'unavailable' | 'failed' }
+
 const MODEL = '~typesafe/jev-latest'
 const URL = 'https://openrouter.ai/api/v1/chat/completions'
 
