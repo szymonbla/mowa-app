@@ -17,19 +17,10 @@ export type Failure =
   /** Odpowiedz 200, ale bez pola z transkrypcja. */
   | { kind: 'provider-response' }
   | { kind: 'paste'; reason: PasteReason; detail?: string }
-  /**
-   * Korekta nie doszla do skutku. Tekst surowy wkleja sie mimo to, wiec dla
-   * uzytkownika to ostrzezenie, nie awaria — powod rozroznia `detail`, bo zadna
-   * z tych rzeczy nie zmienia tego, co ma zrobic.
-   */
-  | { kind: 'cleanup'; reason: CleanupReason; detail?: string }
   | { kind: 'network'; detail?: string }
   | { kind: 'unknown'; detail?: string }
 
 export type PasteReason = 'accessibility' | 'automation' | 'timeout' | 'unknown'
-
-/** 'guard' = wynik rozjechal sie z oryginalem; 'budget' = nie zdazyl w czasie. */
-export type CleanupReason = 'budget' | 'guard' | 'provider' | 'network'
 
 /** Awarie, ktore zglasza okno recordera. Ida przez IPC jako zwykly obiekt. */
 export type RecorderFailure = Extract<
@@ -130,13 +121,6 @@ function text(failure: Failure): FailureText {
           failure.reason === 'accessibility' || failure.reason === 'automation'
             ? failure.reason
             : undefined
-      }
-    case 'cleanup':
-      // Komunikat jest jeden dla wszystkich powodow celowo: tekst i tak sie wkleil,
-      // wiec rozroznienie nic uzytkownikowi nie daje. Powod zostaje w `detail`.
-      return {
-        message: 'Korekta nie wyszla — tekst surowy',
-        detail: `${failure.reason}${failure.detail ? `: ${failure.detail}` : ''}`
       }
     case 'network':
       return { message: 'Brak polaczenia z internetem', detail: failure.detail, fix: 'network' }

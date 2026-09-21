@@ -7,15 +7,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/ensure-electron.js",
     "dev": "electron-vite dev",
+    "predev:plist": "node scripts/ensure-electron.js",
     "dev:plist": "node scripts/dev-plist.js",
+    "prestart": "node scripts/ensure-electron.js",
     "start": "electron-vite preview",
     "build": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "eval": "tsx test/eval/run.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "prebuild:mac": "node scripts/ensure-electron.js",
     "build:mac": "npm run build && electron-builder --mac --arm64"
   },
   "devDependencies": {
@@ -23,7 +26,6 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.2.0",
-    "diff": "^9.0.0",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
@@ -34,8 +36,5 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
     "vitest": "^4.1.10"
-  },
-  "dependencies": {
-    "multilingual-stemmer": "^2.1.1"
   }
 }

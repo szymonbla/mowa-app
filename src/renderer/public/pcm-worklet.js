@@ -14,6 +14,12 @@ class PcmProcessor extends AudioWorkletProcessor {
     this.blocks = 0
     this.squareSum = 0
     this.sampleCount = 0
+    // Ostatnia paczka rzadko ma pelne PCM_BATCH probek. Bez tego zadania konca
+    // nagrania ginelo do 128 ms — czyli koncowka ostatniego slowa.
+    this.port.onmessage = () => {
+      if (this.offset > 0) this.flushPcm()
+      this.port.postMessage({ flushed: true })
+    }
   }
 
   flushPcm() {

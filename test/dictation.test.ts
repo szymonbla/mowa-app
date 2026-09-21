@@ -3,10 +3,7 @@ import { createDictation } from '../src/main/dictation.js'
 import type { Dictation, DictationHost } from '../src/main/dictation.js'
 import { FailureError } from '../src/shared/failure.js'
 import type { FailureText } from '../src/shared/failure.js'
-import type { Attempt, Correction } from '../src/main/cleanup/index.js'
 import type { KeyHealth, OverlayPayload, ProviderId } from '../src/shared/types.js'
-
-const ATTEMPT: Attempt = { provider: 'xai', model: 'grok-test', ms: 120 }
 
 interface Timer {
   ms: number
@@ -32,14 +29,11 @@ interface Fake {
   apiKey: string | null
   micGranted: boolean
   language: 'auto' | 'pl' | 'en'
-  cleanup: boolean
-  /** Przelacznik logu — osobny od korekty, tak samo jak w ustawieniach. */
+  /** Przelacznik logu — wlasny, tak samo jak w ustawieniach. */
   transcripts: boolean
-  /** Co trafilo do logu transkryptow: zapis 1 i zapis 2, w kolejnosci. */
-  log: { open: string[]; close: { id: string; correction: Correction | null }[] }
-  warmed: number
+  /** Co trafilo do logu transkryptow, w kolejnosci. */
+  log: string[]
   transcribe: () => Promise<string>
-  correct: (text: string, speechMs: number) => Promise<Correction>
   /** Ostatnie zaplanowane odliczanie pigulki. */
   lastTimer(): Timer
 }
@@ -58,12 +52,9 @@ function fake(): Fake {
     apiKey: 'sk-test',
     micGranted: true,
     language: 'pl',
-    cleanup: false,
     transcripts: true,
-    log: { open: [], close: [] },
-    warmed: 0,
+    log: [],
     transcribe: () => Promise.resolve('Dzien dobry'),
-    correct: (text) => Promise.resolve<Correction>({ kind: 'corrected', text, attempt: ATTEMPT }),
     lastTimer: () => f.timers[f.timers.length - 1]
   }
 
@@ -72,8 +63,7 @@ function fake(): Fake {
       provider: 'xai',
       providerLabel: 'xAI Grok',
       model: '',
-      language: f.language,
-      ...{ cleanup: f.cleanup }
+      language: f.language
     }),
     apiKey: () => f.apiKey,
     microphoneGranted: () => f.micGranted,
@@ -105,13 +95,9 @@ function fake(): Fake {
       f.health.push({ provider, health })
     },
     transcribe: () => f.transcribe(),
-    logRaw: (raw) => {
-      if (!f.transcripts) return null
-      f.log.open.push(raw)
-      return `wpis-${f.log.open.length}`
-    },
-    logDone: (id) => {
-      f.log.close.push({ id, correction: null })
+    log: (raw) => {
+      if (!f.transcripts) return
+      f.log.push(raw)
     },
     paste: (text) => {
       f.pasted.push(text)
@@ -341,55 +327,28 @@ suite('czas zycia pigulki', () => {
   })
 })
 
-suite('transkrypcja bez przepisywania', () => {
-  it('ignoruje dawny przelacznik korekty i zachowuje slowa dostawcy', async () => {
+suite('log transkryptow w sciezce dyktowania', () => {
+  it('zapisuje surowy tekst tak, jak przyszedl od dostawcy', async () => {
     const f = fake()
-    f.cleanup = true
     const raw = 'Yyy, ja ja chce jutro, nie, w piatek wyslac ten tekst'
     f.transcribe = () => Promise.resolve(raw)
-    let corrections = 0
-    f.correct = () => {
-      corrections++
-      return Promise.resolve({ kind: 'corrected', text: 'Wysle tekst w piatek.', attempt: ATTEMPT })
-    }
-
-    Object.assign(f.host, {
-      correct: (text: string, speechMs: number) => f.correct(text, speechMs),
-      warmCorrector: () => {
-        f.warmed++
-      }
-    })
     await recorded(f).submit(audio())
-
     expect(f.pasted).toEqual([raw])
-    expect(corrections).toBe(0)
-    expect(f.warmed).toBe(0)
+    expect(f.log).toEqual([raw])
     expect(f.overlay.map((o) => o.state)).toEqual(['recording', 'transcribing', 'done'])
-    expect(f.log.open).toEqual([raw])
-    expect(f.log.close).toEqual([{ id: 'wpis-1', correction: null }])
-  })
-})
-
-suite('log transkryptow w sciezce dyktowania', () => {
-  it('domyka wpis bez korekty', async () => {
-    const f = fake()
-    await recorded(f).submit(audio())
-    expect(f.log.open).toEqual(['Dzien dobry'])
-    expect(f.log.close).toEqual([{ id: 'wpis-1', correction: null }])
   })
 
-  it('nie domyka wpisu, ktory nie powstal', async () => {
+  it('nie zapisuje nic, gdy log wylaczony', async () => {
     const f = fake()
     f.transcripts = false
     await recorded(f).submit(audio())
-    expect(f.log.open).toEqual([])
-    expect(f.log.close).toEqual([])
+    expect(f.log).toEqual([])
   })
 
   it('nie zapisuje niczego, gdy transkrypcja nie dala tekstu', async () => {
     const f = fake()
     f.transcribe = () => Promise.resolve('   ')
     await recorded(f).submit(audio())
-    expect(f.log.open).toEqual([])
+    expect(f.log).toEqual([])
   })
 })

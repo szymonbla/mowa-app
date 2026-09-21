@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { silentWav } from '../../src/shared/wav.js'
 import type { OverlayPayload } from '../../src/shared/types.js'
-import type { CloseLine, OpenLine } from '../../src/main/transcripts.js'
+import type { Line } from '../../src/main/transcripts.js'
 
 /**
  * Test calej sciezki dyktowania: skrot → nagranie → transkrypcja →
@@ -307,7 +307,7 @@ function sciezkaLogu(): string {
   return join(stan.dom, '.mowa', 'transkrypty.jsonl')
 }
 
-type Wiersz = Partial<OpenLine & CloseLine>
+type Wiersz = Partial<Line>
 
 /**
  * Log jest zapisem „poza sciezka krytyczna" — `appendLine` nie jest oczekiwany,
@@ -323,18 +323,11 @@ async function wiersze(ile: number): Promise<Wiersz[]> {
   throw new Error(`log ma mniej niz ${ile} wierszy`)
 }
 
-/**
- * Oba zapisy jednego dyktowania. Kolejnosc w pliku **nie jest ustalona**: przy
- * wylaczonej korekcie oba `appendFile` startuja w tym samym takcie i konczą się
- * w dowolnej. Wpis trzyma sie przez `id`, nie przez sasiedztwo — test czyta go
- * tak samo, jak bedzie go czytal zbior oceny.
- */
-async function wpis(): Promise<{ otwarcie: OpenLine; domkniecie: CloseLine }> {
-  const linie = await wiersze(2)
-  const otwarcie = linie.find((l) => l.raw !== undefined) as OpenLine | undefined
-  const domkniecie = linie.find((l) => l.outcome !== undefined) as CloseLine | undefined
-  if (!otwarcie || !domkniecie) throw new Error('log nie ma pary zapisow')
-  return { otwarcie, domkniecie }
+/** Jedyny zapis jednego dyktowania. */
+async function wpis(): Promise<Line> {
+  const [linia] = await wiersze(1)
+  if (linia.raw === undefined) throw new Error('log nie ma wpisu z transkrypcja')
+  return linia as Line
 }
 
 function czekaj(ms: number): Promise<void> {
@@ -343,7 +336,7 @@ function czekaj(ms: number): Promise<void> {
 
 describe('cala sciezka dyktowania', () => {
   it('surowy tekst trafia do schowka bez dodatkowego zadania do modelu', async () => {
-    const app = await uruchom({ cleanup: true })
+    const app = await uruchom()
     await podyktuj(app)
 
     expect(stan.schowek).toEqual([SUROWY])
@@ -353,14 +346,10 @@ describe('cala sciezka dyktowania', () => {
     expect(pigulka()).toEqual(['recording', 'transcribing', 'done'])
     expect(stan.zadania.map((z) => z.url)).toEqual(['/v1/stt'])
 
-    const { otwarcie, domkniecie } = await wpis()
+    const otwarcie = await wpis()
     expect(otwarcie.raw).toBe(SUROWY)
     expect(otwarcie.lang).toBe('pl')
     expect(otwarcie.speechMs).toBe(4000)
-    expect(domkniecie.id).toBe(otwarcie.id)
-    expect(domkniecie.outcome).toBe('off')
-    expect(domkniecie.clean).toBe('')
-    expect(domkniecie.cleanupMs).toBe(0)
     const info = await stat(sciezkaLogu())
     expect(info.mode & 0o777).toBe(0o600)
   })

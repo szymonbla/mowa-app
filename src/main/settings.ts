@@ -24,6 +24,8 @@ let store: StoreFile = { ...DEFAULTS, apiKeys: {} }
 export function initSettings(): void {
   filePath = join(app.getPath('userData'), 'settings.json')
   try {
+    // Migracja: `cleanup` to klucz po usunietej korekcie wypowiedzi. Odrzucamy go,
+    // zeby stary plik ustawien nie wracal na dysk z martwym polem.
     const { cleanup: _cleanup, ...raw } = JSON.parse(
       readFileSync(filePath, 'utf8')
     ) as Partial<StoreFile> & { cleanup?: unknown }

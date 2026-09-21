@@ -47,12 +47,10 @@ export interface DictationHost {
   setKeyHealth(provider: ProviderId, health: KeyHealth): void
   transcribe(provider: ProviderId, wav: Buffer, opts: TranscribeOptions): Promise<string>
   /**
-   * Log transkryptow — zapis surowego tekstu. Zwraca `id` wpisu albo `null`, gdy log
-   * jest wylaczony. Stoi obok dyktowania, wiec nie ma prawa rzucic ani opoznic.
+   * Log transkryptow — zapis surowego tekstu. Stoi obok dyktowania, wiec nie ma
+   * prawa rzucic ani opoznic wklejenia.
    */
-  logRaw(raw: string, speechMs: number): string | null
-  /** Domkniecie wpisu z surowa transkrypcja. */
-  logDone(id: string): void
+  log(raw: string, speechMs: number): void
   paste(text: string): Promise<void>
   /** Zegar pigulki. Zwraca funkcje kasujaca odliczanie. */
   timer(ms: number, fn: () => void): () => void
@@ -188,8 +186,7 @@ export function createDictation(host: DictationHost): Dictation {
       // Klucz przeszedl — kasujemy ewentualna czerwona lampke z wczesniejszej proby.
       host.setKeyHealth(provider, { state: 'ok' })
 
-      const entry = host.logRaw(trimmed, recording.durationMs)
-      if (entry) host.logDone(entry)
+      host.log(trimmed, recording.durationMs)
 
       await host.paste(trimmed)
       phase = 'idle'

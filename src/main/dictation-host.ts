@@ -39,8 +39,7 @@ const host: DictationHost = {
   setError,
   setKeyHealth,
   transcribe,
-  logRaw: (raw, speechMs) => log.open(raw, getSettings().language, speechMs),
-  logDone: (id) => log.close(id, null),
+  log: (raw, speechMs) => log.write(raw, getSettings().language, speechMs),
   paste: pasteText,
   timer(ms, fn) {
     const id = setTimeout(fn, ms)

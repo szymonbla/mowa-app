@@ -6,6 +6,9 @@ interface Session {
   chunks: Float32Array[]
 }
 
+/** Ustawiane tylko na czas oczekiwania na ostatnia paczke probek. */
+let onFlushed: (() => void) | null = null
+
 let session: Session | null = null
 
 /**
@@ -47,10 +50,13 @@ async function start(): Promise<void> {
     const chunks: Float32Array[] = []
 
     // Worklet wysyla dwa rodzaje wiadomosci: paczke probek albo poziom glosnosci.
-    node.port.onmessage = (event: MessageEvent<{ pcm?: Float32Array; rms?: number }>) => {
-      const { pcm, rms } = event.data
+    node.port.onmessage = (
+      event: MessageEvent<{ pcm?: Float32Array; rms?: number; flushed?: true }>
+    ) => {
+      const { pcm, rms, flushed } = event.data
       if (pcm) chunks.push(pcm)
       if (rms !== undefined) window.recorder.sendLevel(rms)
+      if (flushed) onFlushed?.()
     }
 
     mute ??= new GainNode(context, { gain: 0 })
@@ -69,25 +75,38 @@ async function start(): Promise<void> {
   }
 }
 
-function teardown(): Session | null {
-  const active = session
-  session = null
-  if (!active) return null
+function teardown(active: Session): void {
   active.node.port.onmessage = null
   active.node.disconnect()
   // Tracki zamykamy zawsze — inaczej pomaranczowa kropka mikrofonu zostaje w pasku menu.
   active.stream.getTracks().forEach((t) => t.stop())
   // Kontekst zostaje. Usypiamy go, zeby nie liczyl ciszy miedzy nagraniami.
   void ready.then((context) => context.suspend())
-  return active
+}
+
+/** Wymusza w worklecie oddanie niepelnej paczki. Czekanie jest krotkie i z limitem. */
+async function flush(active: Session): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const done = (): void => {
+      onFlushed = null
+      resolve()
+    }
+    onFlushed = done
+    setTimeout(done, 50)
+    active.node.port.postMessage('flush')
+  })
 }
 
 async function stop(): Promise<void> {
-  const active = teardown()
+  const active = session
+  // Zerujemy przed `await`: w tym oknie moze przyjsc cancel albo drugi stop.
+  session = null
   if (!active) {
     window.recorder.sendError({ kind: 'not-recording' })
     return
   }
+  await flush(active)
+  teardown(active)
 
   const samples = active.chunks.reduce((n, c) => n + c.length, 0)
   const durationMs = (samples / SAMPLE_RATE) * 1000
@@ -98,5 +117,7 @@ async function stop(): Promise<void> {
 window.recorder.onStart(() => void start())
 window.recorder.onStop(() => void stop())
 window.recorder.onCancel(() => {
-  teardown()
+  const active = session
+  session = null
+  if (active) teardown(active)
 })
