@@ -19,15 +19,13 @@ describe('agent context', () => {
   })
 
   it('sends the dictated text to JEV on OpenRouter', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: '{"intent":"change","quality":"clear"}' } }]
-          })
-        )
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          answers: { intent: { choice: 'change' }, quality: { choice: 'clear' } }
+        })
       )
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(classifyAgentContext('Dodaj JEV', 'sk-or-test')).resolves.toEqual({
@@ -37,11 +35,12 @@ describe('agent context', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(url).toBe('https://openrouter.ai/api/alpha/decisions')
     expect(init.headers).toMatchObject({ Authorization: 'Bearer sk-or-test' })
     expect(JSON.parse(init.body as string)).toMatchObject({
       model: '~typesafe/jev-latest',
-      messages: [{ role: 'system' }, { role: 'user', content: 'Dodaj JEV' }]
+      state: { records: [{ id: 'message', record: 'Dodaj JEV' }] },
+      questions: { intent: { type: 'choice' }, quality: { type: 'choice' } }
     })
   })
 })

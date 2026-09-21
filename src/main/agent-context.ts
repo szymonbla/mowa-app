@@ -11,9 +11,7 @@ export type AgentContextLog =
   | { status: 'unavailable' | 'failed' }
 
 const MODEL = '~typesafe/jev-latest'
-const URL = 'https://openrouter.ai/api/v1/chat/completions'
-
-const SYSTEM = `Classify a voice message for a coding agent. The speaker mainly uses Polish; English technical names, code, commands, and product names are normal. Do not rewrite or summarize the message. Return JSON only. intent is change, question, idea, note, or unclear. quality is clear, uncertain, or mixed-language.`
+const URL = 'https://openrouter.ai/api/alpha/decisions'
 
 export async function classifyAgentContext(text: string, apiKey: string): Promise<AgentContext> {
   const res = await fetch(URL, {
@@ -21,21 +19,43 @@ export async function classifyAgentContext(text: string, apiKey: string): Promis
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: text }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0,
-      max_tokens: 30
+      state: {
+        description: 'One dictated message for a coding agent.',
+        records: [{ id: 'message', record: text }]
+      },
+      questions: {
+        intent: {
+          type: 'choice',
+          instructions:
+            'Classify the intent of record. Polish with English technical terms is normal.',
+          criteria: {
+            change: 'Asks the agent to change code, configuration, or behavior.',
+            question: 'Asks for an answer or explanation.',
+            idea: 'Suggests or explores a possible future direction.',
+            note: 'Provides information without asking for action.',
+            unclear: 'The intent cannot be determined from the record.'
+          }
+        },
+        quality: {
+          type: 'choice',
+          instructions: 'Assess whether record can be understood reliably by a coding agent.',
+          criteria: {
+            clear: 'The meaning is clear.',
+            uncertain: 'Part of the meaning is missing or ambiguous.',
+            'mixed-language': 'The meaning is clear but mixes Polish with English technical terms.'
+          }
+        }
+      }
     }),
     signal: AbortSignal.timeout(700)
   })
   if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`)
-  const json = (await res.json()) as { choices?: { message?: { content?: unknown } }[] }
-  const content = json.choices?.[0]?.message?.content
-  if (typeof content !== 'string') throw new Error('OpenRouter: brak klasyfikacji')
-  return parseContext(content)
+  const json = (await res.json()) as {
+    answers?: { intent?: { choice?: unknown }; quality?: { choice?: unknown } }
+  }
+  return parseContext(
+    JSON.stringify({ intent: json.answers?.intent?.choice, quality: json.answers?.quality?.choice })
+  )
 }
 
 export function parseContext(content: string): AgentContext {
