@@ -220,8 +220,9 @@ export function createDictation(host: DictationHost): Dictation {
         context,
         log: { status: 'classified', ...context }
       }
-    } catch {
-      return { text, context: null, log: { status: 'failed' } }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message.slice(0, 240) : 'unknown error'
+      return { text, context: null, log: { status: 'failed', reason } }
     }
   }
 

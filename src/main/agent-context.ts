@@ -8,7 +8,8 @@ export interface AgentContext {
 
 export type AgentContextLog =
   | { status: 'classified'; intent: AgentIntent; quality: AgentQuality }
-  | { status: 'unavailable' | 'failed' }
+  | { status: 'unavailable' }
+  | { status: 'failed'; reason: string }
 
 const MODEL = '~typesafe/jev-latest'
 const URL = 'https://openrouter.ai/api/alpha/decisions'
@@ -49,7 +50,10 @@ export async function classifyAgentContext(text: string, apiKey: string): Promis
     }),
     signal: AbortSignal.timeout(700)
   })
-  if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`OpenRouter HTTP ${res.status}${detail ? `: ${detail.slice(0, 180)}` : ''}`)
+  }
   const json = (await res.json()) as {
     answers?: { intent?: { choice?: unknown }; quality?: { choice?: unknown } }
   }
