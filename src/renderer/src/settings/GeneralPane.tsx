@@ -33,8 +33,12 @@ export function GeneralPane({
   const [confirming, setConfirming] = useState(false)
   const [key, setKey] = useState<KeyStatus | null>(null)
   const [draft, setDraft] = useState('')
+  const [editingKey, setEditingKey] = useState(true)
   useEffect(() => {
-    void window.api.getOpenRouterKey().then(setKey)
+    void window.api.getOpenRouterKey().then((next) => {
+      setKey(next)
+      setEditingKey(!next.hasKey)
+    })
   }, [])
 
   return (
@@ -90,25 +94,36 @@ export function GeneralPane({
             <div className="row-desc">Zapisany w Keychain. Potrzebny tylko w tym trybie.</div>
           </div>
           <div className="key-field">
-            <input
-              type="password"
-              value={draft}
-              placeholder={key?.hasKey ? key.masked : 'sk-or-…'}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <button
-              className="primary"
-              disabled={!draft.trim()}
-              onClick={() =>
-                void window.api.setOpenRouterKey(draft).then((next) => {
-                  setKey(next)
-                  setDraft('')
-                })
-              }
-            >
-              Zapisz
-            </button>
+            {editingKey ? (
+              <>
+                <input
+                  type="password"
+                  value={draft}
+                  placeholder="sk-or-…"
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+                <button
+                  className="primary"
+                  disabled={!draft.trim()}
+                  onClick={() =>
+                    void window.api.setOpenRouterKey(draft).then((next) => {
+                      setKey(next)
+                      setDraft('')
+                      setEditingKey(false)
+                    })
+                  }
+                >
+                  Zapisz
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="key-set">{key?.masked}</span>
+                <button onClick={() => setEditingKey(true)}>Zmien</button>
+              </>
+            )}
           </div>
+          {!editingKey && <div className="hint">✓ Klucz OpenRouter zapisany</div>}
         </div>
       </div>
 
