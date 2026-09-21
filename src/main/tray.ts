@@ -2,6 +2,7 @@ import { Menu, Tray, app, nativeImage } from 'electron'
 import { showSettingsWindow } from './windows.js'
 import { dictation } from './dictation-host.js'
 import { getSettings } from './settings.js'
+import { markLastDictation } from './feedback.js'
 
 let tray: Tray | null = null
 
@@ -50,6 +51,9 @@ export function refreshTrayMenu(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Dyktuj', accelerator: shortcut, click: dictation.toggle },
+      { type: 'separator' },
+      { label: 'Ostatnie dyktowanie: trafione', click: () => markLastDictation('good') },
+      { label: 'Ostatnie dyktowanie: bledne', click: () => markLastDictation('bad') },
       { type: 'separator' },
       { label: 'Ustawienia…', click: showSettingsWindow },
       { type: 'separator' },

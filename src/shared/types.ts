@@ -15,7 +15,7 @@ export interface Settings {
   launchAtLogin: boolean
   /** Opcjonalny zapis surowych transkrypcji na dysku. */
   transcripts: boolean
-  /** Dokleja krotki status JEV przed tekstem wklejanym do agenta. */
+  /** Wlacza JEV tylko, gdy na wierzchu jest wybrana aplikacja agenta. */
   agentContext: boolean
 }
 

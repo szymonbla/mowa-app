@@ -11,6 +11,8 @@ import { getRecorderWindow, hideOverlay, showOverlay, updateOverlay } from './wi
 import { bindCancelKey, unbindCancelKey } from './shortcut.js'
 import { classifyAgentContext } from './agent-context.js'
 import { getOpenRouterKey } from './settings.js'
+import { frontmostIsAgent } from './agent-app.js'
+import { rememberLastDictation } from './feedback.js'
 
 /** Log stoi obok dyktowania: wlasny przelacznik, wlasne zycie, zero wplywu na wynik. */
 const log = createTranscriptLog({
@@ -43,10 +45,14 @@ const host: DictationHost = {
   setKeyHealth,
   transcribe,
   agentContext: async (text) => {
+    if (!(await frontmostIsAgent())) return null
     const key = getOpenRouterKey()
     return key ? classifyAgentContext(text, key) : null
   },
-  log: (raw, speechMs, agent) => log.write(raw, getSettings().language, speechMs, agent),
+  log: (raw, speechMs, agent) => {
+    log.write(raw, getSettings().language, speechMs, agent)
+    rememberLastDictation()
+  },
   paste: pasteText,
   timer(ms, fn) {
     const id = setTimeout(fn, ms)
