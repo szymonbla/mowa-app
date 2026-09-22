@@ -26,6 +26,13 @@ let onFlushed: (() => void) | null = null
 let session: Session | null = null
 
 /**
+ * Rosnie przy kazdym rozkazie. Otwarcie mikrofonu trwa setki ms, wiec `cancel`
+ * albo `stop` potrafi przyjsc w srodku `await` w `start()`. Bieg, ktory wroci
+ * z numerem innym niz biezacy, jest juz niczyj i nie ma prawa stac sie sesja.
+ */
+let run = 0
+
+/**
  * AudioContext i modul workletu tworzymy raz, przy wczytaniu okna.
  * Wczesniej powstawaly przy kazdym nacisnieciu skrotu — to byly setki ms zwloki,
  * podczas ktorych pigulka byla widoczna, ale sciezka stala w miejscu.
@@ -107,6 +114,7 @@ async function openMic(context: AudioContext): Promise<Mic> {
 
 async function start(): Promise<void> {
   if (session) return
+  const mine = ++run
 
   try {
     const context = await ready
@@ -114,6 +122,14 @@ async function start(): Promise<void> {
     if (context.state !== 'running') await context.resume()
 
     const active = await openMic(context)
+    // Anulowano, zanim mikrofon zdazyl sie otworzyc. Bez tego sprawdzenia powstawala
+    // sesja, o ktorej proces glowny nie wiedzial: kolejny start milczal, a probki
+    // z porzuconego nagrania doklejaly sie do nastepnego.
+    if (mine !== run) {
+      scheduleRelease()
+      return
+    }
+
     const node = new AudioWorkletNode(context, 'pcm-processor')
     const chunks: Float32Array[] = []
 
@@ -138,6 +154,8 @@ async function start(): Promise<void> {
 
     session = { mic: active, node, chunks }
   } catch (err) {
+    // Awaria porzuconego biegu nie jest niczyim bledem.
+    if (mine !== run) return
     // Zglaszamy sam rodzaj awarii — tresc dla uzytkownika powstaje w procesie glownym.
     window.recorder.sendError(
       err instanceof Error && err.name === 'NotAllowedError'
@@ -172,6 +190,7 @@ async function stop(): Promise<void> {
   const active = session
   // Zerujemy przed `await`: w tym oknie moze przyjsc cancel albo drugi stop.
   session = null
+  run++
   if (!active) {
     window.recorder.sendError({ kind: 'not-recording' })
     return
@@ -190,5 +209,7 @@ window.recorder.onStop(() => void stop())
 window.recorder.onCancel(() => {
   const active = session
   session = null
+  // Takze gdy sesji jeszcze nie ma: to wlasnie unieważnia start w locie.
+  run++
   if (active) teardown(active)
 })
