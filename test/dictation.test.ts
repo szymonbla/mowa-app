@@ -20,6 +20,11 @@ interface Fake {
   host: DictationHost
   /** Rozkazy do recordera plus 'hide', w kolejnosci. */
   commands: string[]
+  /**
+   * Rozkazy i pigulka w jednym ciagu. Same `commands` i `overlay` nie pokazuja,
+   * co bylo pierwsze, a przy starcie liczy sie wlasnie kolejnosc.
+   */
+  trace: string[]
   overlay: OverlayPayload[]
   errors: (FailureText | null)[]
   health: { provider: ProviderId; health: KeyHealth }[]
@@ -58,6 +63,7 @@ function fake(): Fake {
   const f: Fake = {
     host: null as unknown as DictationHost,
     commands: [],
+    trace: [],
     overlay: [],
     errors: [],
     health: [],
@@ -96,6 +102,7 @@ function fake(): Fake {
     },
     record: (command) => {
       f.commands.push(command)
+      f.trace.push(`record:${command}`)
     },
     bindCancelKey: (onCancel) => {
       f.cancelKey = onCancel
@@ -105,12 +112,15 @@ function fake(): Fake {
     },
     showOverlay: (payload) => {
       f.overlay.push(payload)
+      f.trace.push(`overlay:${payload.state}`)
     },
     updateOverlay: (payload) => {
       f.overlay.push(payload)
+      f.trace.push(`overlay:${payload.state}`)
     },
     hideOverlay: () => {
       f.commands.push('hide')
+      f.trace.push('overlay:hide')
     },
     setError: (error) => {
       f.errors.push(error)
@@ -191,6 +201,40 @@ suite('dyktowanie', () => {
     expect(f.commands).toEqual(['start', 'stop'])
     expect(lastOverlay(f)).toEqual({ state: 'transcribing' })
     expect(f.cancelKey).toBeNull()
+  })
+
+  it('otwiera mikrofon, zanim zajmie sie pigulka', () => {
+    const f = fake()
+
+    createDictation(f.host).toggle()
+
+    // Pokazanie pigulki to synchroniczne wejscie w window server, a rejestracja Esc
+    // to wywolanie do systemu. Obie stoja przed mikrofonem, gdy idzie pierwszy rozkaz.
+    expect(f.trace[0]).toBe('record:start')
+  })
+
+  it('nie mowi „nagrywam", dopoki mikrofon nie slucha', () => {
+    const f = fake()
+    const dictation = createDictation(f.host)
+
+    dictation.toggle()
+    // Urzadzenie wejsciowe otwiera sie setki ms. Pigulka nie ma prawa zapraszac
+    // do mowienia, zanim probki naprawde lecą — to wlasnie gubilo pierwsze slowa.
+    expect(lastOverlay(f)).toEqual({ state: 'starting' })
+
+    dictation.live()
+    expect(lastOverlay(f)).toEqual({ state: 'recording' })
+  })
+
+  it('spozniony sygnal mikrofonu nie wskrzesza pigulki po anulowaniu', () => {
+    const f = fake()
+    const dictation = createDictation(f.host)
+
+    dictation.toggle()
+    dictation.cancel()
+    dictation.live()
+
+    expect(lastOverlay(f)).not.toEqual({ state: 'recording' })
   })
 
   it('trzeci skrot w trakcie transkrypcji nic nie robi', () => {
