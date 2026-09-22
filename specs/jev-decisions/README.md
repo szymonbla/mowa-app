@@ -116,15 +116,15 @@ ordinary word. That is the bounded judgement JEV exists for.
 
 | Ticket | Outcome | Owner session | Status |
 |---|---|---|---|
-| J0 | Finish removing the intent classifier | in flight (uncommitted) | in progress |
+| J0 | Finish removing the intent classifier | impl session | done (`ff95da8`) |
 | J1 | JEV vetoes a correction that changed the meaning | | ready |
 | J2 | JEV arbitrates ambiguous technical terms | | recommend cancel: J2a found zero errors |
-| J2a | Labeled corpus from `~/.mowa/transkrypty.jsonl` | impl session | done; measurement in notes.md |
+| J2a | Labeled corpus from `~/.mowa/transkrypty.jsonl` | impl session | done; measurement in notes.md, sentences in `~/.mowa/j2a-corpus.json` |
 | J3 | Warn when the paste went to a different app | | needs a failure case |
 
-Order: J0 → J1 → J2a → (measure) → J2. J0 is a hard prerequisite, not a
-preference: `npm run typecheck` currently fails, because `dictation-host.ts`
-still reads `agentContext` off `Settings` and the settings diff removed it.
+Order: J0 → J1 → J2a → (measure) → J2. J0 was a hard prerequisite, not a
+preference, because `npm run typecheck` failed while `dictation-host.ts` still
+read `agentContext` off `Settings`. It landed in `ff95da8` and typecheck is clean.
 
 J2 only starts if J2a shows the arbiter beats exact replacements alone. J3 does
 not start until the open question below has an answer.

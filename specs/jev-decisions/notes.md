@@ -112,8 +112,9 @@ dzisiaj - wprowadza **zero** bledow. Rekomendacja brzmi wiec **anulowac J2** i p
 listy dokladnej. Brakujace 19 poprawek to zadanie dla odmiany, nie dla modelu: wystarczy pozwolic
 regule dopasowac koncowke i trzymac `bard` na liscie wyjatkow. Decyzja jest Twoja.
 
-Etykiety `shouldApply` nadal agent, nie Ty. Przejrzyj `test/fixtures/ambiguous-terms.ts` - 38
-wierszy, kazdy to zdanie, ktore naprawde wypowiedziales.
+Etykiety `shouldApply` nadal agent, nie Ty. Zdania, z ktorych pochodza, leza poza repo
+w `~/.mowa/j2a-corpus.json` - 38 wierszy, kazdy to zdanie, ktore naprawde wypowiedziales.
+W repo zostaly same formy, bo repo jest publiczne.
 
 Reczny przebieg z "Done when" spec-a - `kursor` raz jako kareta, raz jako edytor - nie da sie
 oprzec na logu: w 314 transkryptach `kursor` pada raz i za kazdym razem chodzi o edytor.
@@ -151,8 +152,8 @@ dla ktorej powstalo J2, jest w tym korpusie pusta.
 
 ### Zmienione
 
-`scripts/corpus.ts` (skaner, `--tsv` i `--log`), `test/fixtures/ambiguous-terms.ts` (korpus),
-`test/corpus.test.ts` (odtworzenie pomiaru). `nextWholeWord` w `src/shared/replacements.ts` zostal
+`scripts/corpus.ts` (skaner, `--tsv` i `--log`), `test/fixtures/ambiguous-terms.ts` (korpus
+samych form), `test/corpus.test.ts` (odtworzenie pomiaru). `nextWholeWord` w `src/shared/replacements.ts` zostal
 wyeksportowany, zeby skaner pytal o dokladnie te same dopasowania, ktore wykona zamiana - to jedyne
 dotkniecie `src/`, poza granica tiketu, swiadome. `tsconfig.node.json` obejmuje teraz `scripts/**/*.ts`,
 bo test importuje skaner.
@@ -182,3 +183,47 @@ niczego nie wypchnalem - `git ls-remote` potwierdza, ze commit nie lezy na zadny
 Zanim `main` pojdzie na GitHub, trzeba wybrac: ustawic repo na prywatne albo wyciac ten plik.
 Nie redagowalem zdan sam, bo zmyslone zdanie przestaje byc dowodem - a to jedyne, czym ten
 korpus jest.
+
+Rozwiazane w nastepnym wpisie: repo zostaje publiczne, zdania wyszly z repo, pomiar zostal.
+
+## 2026-09-22 - impl - zdjecie blokady przed pushem
+
+### Dla Szymona
+
+Wybrales publiczne repo bez wrazliwych danych, wiec zdania wyszly z repo, a nie repo z GitHuba.
+Dwa commity J2a napisalem od nowa, zeby zdania nie zostaly w historii - w publicznym repo
+skasowanie pliku nowym commitem niczego nie chowa, bo blob dalej wisi w poprzednim commicie.
+
+Pomiar nic na tym nie stracil. Zadne stwierdzenie w `test/corpus.test.ts` nie czytalo zdania:
+wszystkie pytaja o sama forme (`bardzo`, `flit`, `kronie`) i o etykiete. Korpus w repo ma wiec te
+same 38 wierszy, tylko bez pola `transcript`, a testy przechodza w tej samej liczbie co wczoraj.
+
+Pelny korpus ze zdaniami lezy w `~/.mowa/j2a-corpus.json`, obok logu, z ktorego powstal. Tam
+przegladasz etykiety `shouldApply`, ktorych nadal nie potwierdziles.
+
+### Do decyzji
+
+W repo zostaje slownik aliasow: `scripts/corpus.ts` (`grochbot`->Grokbot, `dzid`->JID,
+`flit`->Fleet, `Light LLM`->LiteLLM, `Potato`->poteto), te same nazwy w `specs/jev-decisions/`
+i szesc kilkuwyrazowych cytatow w `README.md`. To nazwy narzedzi, nie mowa o ludziach, wiec
+zostawilem je swiadomie. Jesli ktoras nazwa jest wewnetrzna, powiedz - wtedy lista aliasow tez
+przenosi sie do pliku lokalnego, a skaner czyta ja stamtad.
+
+### Zmienione
+
+`test/fixtures/ambiguous-terms.ts` bez pola `transcript` (i bez zdan). `test/corpus.test.ts`
+dopasowany do tego w commicie, ktory go wprowadza, zamiast w nastepnym. `specs/jev-decisions/README.md`:
+tabela Workstreams mowila, ze J0 jest niezacommitowane i ze `npm run typecheck` sie wywala -
+oba zdania byly nieaktualne od commitu `ff95da8`.
+
+### Sprawdzone
+
+`npm run typecheck` czysty. `npm test`: 10 plikow, 139 testow - tyle samo co przed zmiana.
+`npm run build` przechodzi. `git rev-list --objects origin/main..main` plus skan kazdego bloba
+w tym zakresie: ani jedno pole `transcript:` nie wchodzi na zdalny branch. Push bez `--force`,
+bo `origin/main` dalej jest przodkiem `main`.
+
+### Znalezione, nienaprawione
+
+Stare commity z korpusem zyja jeszcze lokalnie w `refs/t3/checkpoints/*`. Nie ida na `origin`
+przy `git push origin main`, ale `git push --all` albo `--mirror` by je zabral.
