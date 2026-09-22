@@ -48,7 +48,11 @@ export interface KeyStatus {
   masked: string
 }
 
-export type OverlayState = 'recording' | 'transcribing' | 'done' | 'error'
+/**
+ * 'starting' to czas, w ktorym mikrofon dopiero sie otwiera. Bez tego stanu pigulka
+ * zapraszala do mowienia, zanim urzadzenie oddalo pierwsza probke.
+ */
+export type OverlayState = 'starting' | 'recording' | 'transcribing' | 'done' | 'error'
 
 export interface OverlayPayload {
   state: OverlayState

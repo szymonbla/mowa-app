@@ -84,6 +84,7 @@ export function registerIpc(): void {
   ipcMain.handle('transcripts:clear', () => clearTranscripts())
 
   // Kanaly recordera (ukryte okno → main).
+  ipcMain.on('record:live', () => dictation.live())
   ipcMain.on('record:level', (_e, level: number) => sendOverlayLevel(level))
   ipcMain.on(
     'record:error',

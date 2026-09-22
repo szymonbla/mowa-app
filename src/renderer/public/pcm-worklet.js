@@ -14,6 +14,7 @@ class PcmProcessor extends AudioWorkletProcessor {
     this.blocks = 0
     this.squareSum = 0
     this.sampleCount = 0
+    this.started = false
     // Ostatnia paczka rzadko ma pelne PCM_BATCH probek. Bez tego zadania konca
     // nagrania ginelo do 128 ms — czyli koncowka ostatniego slowa.
     this.port.onmessage = () => {
@@ -32,6 +33,13 @@ class PcmProcessor extends AudioWorkletProcessor {
   process(inputs) {
     const channel = inputs[0]?.[0]
     if (!channel) return true
+
+    // Pierwszy blok to dowod, ze urzadzenie wejsciowe naprawde oddaje probki.
+    // Proces glowny czeka na ten meldunek, zanim pigulka zaprosi do mowienia.
+    if (!this.started) {
+      this.started = true
+      this.port.postMessage({ started: true })
+    }
 
     for (let i = 0; i < channel.length; i++) {
       const sample = channel[i]

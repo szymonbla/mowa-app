@@ -82,6 +82,8 @@ export interface DictationHost {
 export interface Dictation {
   /** Skrot dyktowania. Pierwsze nacisniecie startuje, drugie konczy. */
   toggle(): void
+  /** Recorder melduje, ze mikrofon oddaje probki. Dopiero teraz pigulka zaprasza. */
+  live(): void
   cancel(): void
   submit(recording: Recording): Promise<void>
   /** Wysyla zapamietane nagranie jeszcze raz. Bez nagrania — nic nie robi. */
@@ -101,6 +103,8 @@ export interface Dictation {
  */
 export function createDictation(host: DictationHost): Dictation {
   let phase: Phase = 'idle'
+  /** Czy recorder zdazyl zameldowac probki w tym biegu. Chroni przed podwojnym meldunkiem. */
+  let micLive = false
   let stopTimer: (() => void) | null = null
   /** Rosnie przy anulowaniu. Transkrypcja ze starego biegu jest juz niczyja. */
   let run = 0
@@ -172,8 +176,8 @@ export function createDictation(host: DictationHost): Dictation {
   }
 
   /**
-   * Cala sciezka startu jest synchroniczna. Kazde `await` przed `showOverlay()`
-   * opoznialoby pojawienie sie pigulki, a to jedyne potwierdzenie, ze skrot zadzialal.
+   * Cala sciezka startu jest synchroniczna. Kazde `await` przed `host.record('start')`
+   * opoznialoby otwarcie mikrofonu, a to ono decyduje, czy pierwsze slowo sie nagra.
    */
   function start(): void {
     const { provider, providerLabel } = host.settings()
@@ -188,14 +192,32 @@ export function createDictation(host: DictationHost): Dictation {
       return
     }
 
+    /*
+     * Mikrofon pierwszy. `showOverlay()` wchodzi synchronicznie do window servera,
+     * a `bindCancelKey()` rejestruje skrot w systemie — obie rzeczy moga poczekac,
+     * bo urzadzenie wejsciowe otwiera sie setki ms i to ono gubilo pierwsze slowa.
+     */
+    phase = 'recording'
+    micLive = false
+    host.record('start')
+
     clearTimer()
     // Nowe nagranie zastepuje poprzednie: stare nie ma juz gdzie wrocic.
     forgetPending()
     setActions({ retry: false })
-    phase = 'recording'
-    host.showOverlay({ state: 'recording' })
+    // Nie 'recording': dopoki probki nie ida, pigulka nie ma czego potwierdzac.
+    host.showOverlay({ state: 'starting' })
     host.bindCancelKey(cancel)
-    host.record('start')
+  }
+
+  /**
+   * Meldunek moze przyjsc po anulowaniu albo po drugim skrocie — wtedy nalezy do
+   * biegu, ktorego juz nie ma. Faza jest jedynym sedzia.
+   */
+  function live(): void {
+    if (phase !== 'recording' || micLive) return
+    micLive = true
+    host.updateOverlay({ state: 'recording' })
   }
 
   function stop(): void {
@@ -392,5 +414,5 @@ export function createDictation(host: DictationHost): Dictation {
     }
   }
 
-  return { toggle, cancel, submit, retry, redo, pasteLast }
+  return { toggle, live, cancel, submit, retry, redo, pasteLast }
 }

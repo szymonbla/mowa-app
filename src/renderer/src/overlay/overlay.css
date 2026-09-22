@@ -156,3 +156,17 @@ body,
   text-align: center;
   color: #c4574a;
 }
+
+/*
+ * Mikrofon jeszcze sie otwiera. Przygaszona sciezka i brak zegara znacza „jeszcze
+ * nie mow" — zapalenie sie slupkow i pojawienie zegara jest zaproszeniem.
+ * Bez tego stanu pigulka wygladala tak samo jak przy nagrywaniu i pierwsze slowa
+ * padaly w martwy mikrofon.
+ */
+.pill.starting .bar {
+  background: #56534d;
+}
+
+.pill.starting .track {
+  animation: breathe 900ms ease-in-out infinite;
+}

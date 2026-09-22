@@ -66,7 +66,16 @@ export function Overlay(): React.JSX.Element | null {
 
     window.overlay.onState((next) => {
       setPayload(next)
+      // Mikrofon dopiero sie otwiera: kasujemy sciezke po poprzednim nagraniu,
+      // zeby przygaszona pigulka nie pokazywala cudzych slupkow.
+      if (next.state === 'starting') {
+        cols.current.fill(0)
+        peak.current = 0
+        gateOpen = false
+        paint()
+      }
       if (next.state === 'recording') {
+        // Zegar rusza dopiero tutaj, bo dopiero teraz cokolwiek sie nagrywa.
         recordingStartedAt.current = performance.now()
         setElapsedMs(0)
         cols.current.fill(0)

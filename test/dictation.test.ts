@@ -171,6 +171,8 @@ function audio(durationMs = 1200): { ok: true; wav: Buffer; durationMs: number }
 function recorded(f: Fake): Dictation {
   const dictation = createDictation(f.host)
   dictation.toggle()
+  // Prawdziwe nagranie zawsze przechodzi przez meldunek mikrofonu.
+  dictation.live()
   dictation.toggle()
   return dictation
 }
@@ -193,7 +195,9 @@ suite('dyktowanie', () => {
 
     dictation.toggle()
     expect(f.commands).toEqual(['start'])
-    expect(f.overlay[0]).toEqual({ state: 'recording' })
+    expect(f.overlay[0]).toEqual({ state: 'starting' })
+    dictation.live()
+    expect(lastOverlay(f)).toEqual({ state: 'recording' })
     // Esc dziala tylko w trakcie nagrywania.
     expect(f.cancelKey).not.toBeNull()
 
@@ -439,7 +443,12 @@ suite('log transkryptow w sciezce dyktowania', () => {
     await recorded(f).submit(audio())
     expect(f.pasted).toEqual([raw])
     expect(f.log).toEqual([raw])
-    expect(f.overlay.map((o) => o.state)).toEqual(['recording', 'transcribing', 'done'])
+    expect(f.overlay.map((o) => o.state)).toEqual([
+      'starting',
+      'recording',
+      'transcribing',
+      'done'
+    ])
   })
 
   it('nie zapisuje nic, gdy log wylaczony', async () => {
@@ -599,7 +608,7 @@ suite('powtorka po awarii dostawcy', () => {
     dictation.cancel()
     dictation.retry()
     expect(f.pasted).toEqual([])
-    expect(lastOverlay(f)).toEqual({ state: 'recording' })
+    expect(lastOverlay(f)).toEqual({ state: 'starting' })
   })
 
   it('Esc w trakcie automatycznej powtorki porzuca nagranie', async () => {
@@ -648,7 +657,7 @@ suite('cofnij i powtorz', () => {
     expect(f.undos).toBe(1)
     expect(f.verdicts).toEqual(['bad'])
     expect(f.commands).toEqual(['start', 'stop', 'start'])
-    expect(lastOverlay(f)).toEqual({ state: 'recording' })
+    expect(lastOverlay(f)).toEqual({ state: 'starting' })
   })
 
   it('po oknie 15 s nie cofa niczego, tylko nagrywa', async () => {

@@ -310,9 +310,11 @@ function nagranie(durationMs = 4000): {
   return { ok: true, wav: Buffer.from(encodeWav([new Float32Array([0.02, -0.02])])), durationMs }
 }
 
-/** Pelne dyktowanie: skrot start, skrot stop, nagranie z okna recordera. */
+/** Pelne dyktowanie: skrot start, meldunek mikrofonu, skrot stop, nagranie. */
 async function podyktuj(app: Aplikacja, durationMs?: number): Promise<void> {
   app.dyktowanie.toggle()
+  // Okno recordera melduje pierwszy blok probek — bez tego pigulka stoi w 'starting'.
+  app.dyktowanie.live()
   app.dyktowanie.toggle()
   await app.dyktowanie.submit(nagranie(durationMs))
 }
@@ -367,7 +369,7 @@ describe('cala sciezka dyktowania', () => {
     expect(stan.polecenia.some(([plik]) => plik === 'osascript')).toBe(true)
     expect(kanaly()).toContain('record:start')
     expect(kanaly()).toContain('record:stop')
-    expect(pigulka()).toEqual(['recording', 'transcribing', 'done'])
+    expect(pigulka()).toEqual(['starting', 'recording', 'transcribing', 'done'])
     expect(stan.zadania.map((z) => z.url)).toEqual(['/v1/stt'])
 
     const otwarcie = await wpis()

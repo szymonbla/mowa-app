@@ -78,6 +78,9 @@ const recorderApi = {
   onCancel: (cb: () => void): void => {
     ipcRenderer.on('record:cancel', () => cb())
   },
+  /** Mikrofon oddal pierwszy blok probek. Osobny kanal od poziomu glosnosci,
+   *  bo „graf ruszyl" i „tak glosno jest teraz" to dwie rozne rzeczy. */
+  sendLive: (): void => ipcRenderer.send('record:live'),
   sendLevel: (level: number): void => ipcRenderer.send('record:level', level),
   sendError: (failure: RecorderFailure): void => ipcRenderer.send('record:error', failure),
   sendAudio: (wav: ArrayBuffer, durationMs: number): Promise<void> =>
