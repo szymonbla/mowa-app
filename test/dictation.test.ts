@@ -443,12 +443,7 @@ suite('log transkryptow w sciezce dyktowania', () => {
     await recorded(f).submit(audio())
     expect(f.pasted).toEqual([raw])
     expect(f.log).toEqual([raw])
-    expect(f.overlay.map((o) => o.state)).toEqual([
-      'starting',
-      'recording',
-      'transcribing',
-      'done'
-    ])
+    expect(f.overlay.map((o) => o.state)).toEqual(['starting', 'recording', 'transcribing', 'done'])
   })
 
   it('nie zapisuje nic, gdy log wylaczony', async () => {

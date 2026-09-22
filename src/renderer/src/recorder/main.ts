@@ -69,6 +69,17 @@ function scheduleRelease(): void {
   }, MIC_WARM_MS)
 }
 
+/*
+ * Zmiana urzadzen w systemie uniewaznia cieply mikrofon. Bez tego przelaczenie
+ * wejscia w Ustawieniach dzialaloby dopiero po wygasnieciu `MIC_WARM_MS`,
+ * bo stary track wciaz zylby jako 'live'.
+ */
+navigator.mediaDevices.addEventListener('devicechange', () => {
+  if (session) return
+  cancelRelease()
+  closeMic()
+})
+
 /**
  * Zwraca otwarty mikrofon. Ponowne uzycie omija `getUserMedia`, ktore jest
  * najdrozszym krokiem startu. Martwy track (wyjete sluchawki, odlaczony
